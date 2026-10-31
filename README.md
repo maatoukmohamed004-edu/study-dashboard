@@ -12,11 +12,22 @@ browser only. There is no server and no account.
 | **Resources** | One card per module, filterable by module (the filter stays in the URL, e.g. `#/resources/micro`). Links open in a new tab. |
 | **Absences** | A counter and an editable limit per module. Amber one absence before the limit, red at it, always with an icon and words as well as colour. |
 | **Sunday check** | The three numbers, with trend charts against their targets. z is computed as shown below. |
-| **Settings** | Theme, background, glass, HUD, motion, simulated time and data. See [Settings](#settings). |
+| **Settings** | Theme, background, glass, HUD, navigation, motion, simulated time and data. See [Settings](#settings). |
 
 ```math
 z = \frac{\text{your grade} - \text{class mean}}{\text{class standard deviation}}
 ```
+
+**On a phone** (640 px wide or less), navigation sits in a tab bar at the bottom of the screen,
+within thumb reach: **Today, Week, Plan, Absences**, plus **More** for Resources, Sunday check and
+Settings. Tap the current tab again to jump back to the top. The gear in the top bar opens Quick
+settings. The bar hides while you type in a field, so it never covers the field or floats above
+the keyboard. You can pick the four tabs, hide their labels, turn on swiping between pages, or go
+back to the scrolling top bar in **Settings → Navigation**.
+
+**Changing page** plays a short animation: the new page opens inside a soft-edged disc that grows
+from where you pressed or clicked. With the keyboard it grows from the link you activated.
+Other styles, or none, are in Settings → Navigation.
 
 ## Run it
 
@@ -30,6 +41,11 @@ npm run preview      # serve dist/ locally
 npm run lint         # oxlint
 ```
 
+**Try it on your phone over Wi-Fi:** run `npm run dev -- --host`, then open the "Network" address
+it prints (for example `http://192.168.1.20:5173/`) on a phone connected to the same Wi-Fi. If
+it doesn't load, your computer's firewall may be blocking port 5173. Progress saved at that
+address is separate from the deployed site's.
+
 Changing the code? Read [`CLAUDE.md`](CLAUDE.md) first: it covers how the app is put together,
 the rules that must not break, known traps, and the screenshot and settings checks in
 `tools/verify/`.
@@ -37,7 +53,7 @@ the rules that must not break, known traps, and the screenshot and settings chec
 ## Settings
 
 Open **Settings** with the gear in the top bar (`#/settings`), or jump to one section with
-`#/settings/appearance`, `…/background`, `…/glass`, `…/hud`, `…/motion`, `…/diagnostics` or
+`#/settings/appearance`, `…/background`, `…/glass`, `…/hud`, `…/navigation`, `…/motion`, `…/diagnostics` or
 `…/data`. The square sliders button in the bottom-right corner opens **Quick settings**, a
 drawer with the six most-used controls: preset, color mode, accent, background, glass and
 motion. Every change applies at once, with no reload.
@@ -48,7 +64,8 @@ motion. Every change applies at once, with no reload.
 | **Background** | Type: solid, static gradient, dot grid, animated gradient (ShaderGradient) or dithered sphere (with a lens that follows your cursor) · three gradient colours · speed · grain · quality (auto / low / high) · pause when the tab is hidden · allow 3D on phones (off by default) |
 | **Glass** | Mode: off, frosted blur, refraction, or experimental liquid-glass-js · blur · refraction strength · tint opacity · saturation · edge highlight · apply to header / cards / buttons. A note shows the mode actually in use if your browser can't do the one you picked. |
 | **HUD & layout** | Frame, corner brackets, grid, bottom caption, header orb and its style (dotted / liquid) |
-| **Motion** | Auto (follows your device), reduced or full · animation speed |
+| **Navigation** | Page transition: **Disc reveal** (default), **Disc wash** (an accent-tinted disc covers the page, the page changes underneath, the disc fades), Crossfade or None · duration 300–1200 ms (650 by default, scaled by animation speed) · edge softness · where the disc starts (press point or screen centre) · tab bar on phones · tab labels · swipe between pages (off by default) · which four pages get a tab, in order (always exactly four; the rest go to More) |
+| **Motion** | Auto (follows your device), reduced or full · animation speed. Reduced motion turns page transitions into a short crossfade. |
 | **Simulation & diagnostics** | Simulated date and time. Every page behaves as if it were that moment, and a banner with **Back to real time** stays on screen. Also an FPS counter and what this browser supports. |
 | **Data** | Export or import settings (`study-dashboard-settings-YYYY-MM-DD.json`) · export or import progress (unchanged, see [Your data](#your-data)) · reset all settings. Each section also has **Reset section**. Every reset, import and preset change offers **Undo**. |
 
@@ -113,8 +130,23 @@ Without Actions: `npm run build && npx gh-pages -d dist`, then set Pages to the 
 
 ## How it's built
 
-- **Vite 8, React 19, TypeScript** (strict), with a tiny hash router in `src/lib/env.ts`.
-  Schedule logic is in `src/lib/schedule.ts`.
+- **Vite 8, React 19, TypeScript** (strict). Schedule logic is in `src/lib/schedule.ts`.
+- **Navigation:** one navigation layer in `src/lib/env.ts` handles every in-app link (`#/…` hash
+  routes). It records where you pressed, adds a history entry, restores your scroll position
+  on back/forward, then moves focus to the new page's heading and announces the page.
+  Pages are separate chunks, preloaded when the browser is idle, so a transition never waits
+  on a download or shows "Loading".
+- **Page transitions** (`src/lib/transition.ts`, `src/styles/transitions.css`):
+  - **Disc reveal** uses the View Transitions API. The new page's snapshot is masked by a
+    radial gradient whose radius (a registered `@property`) grows to the farthest corner of the
+    screen. The timing follows the reference video: curve `cubic-bezier(.54, 0, .34, .99)` with
+    a feathered edge, and the old page does not dim.
+  - The header, tab bar, HUD frame and caption are captured separately and stay put, so
+    only the page content changes.
+  - Browsers without View Transitions get a page-coloured disc that covers the old page and
+    fades off the new one. **Disc wash** uses an accent-tinted version of that disc everywhere.
+  - Only transform and opacity animate in the fallbacks. A tap during a transition jumps to its
+    end and goes to the newest target.
 - **Look:** near-black and monochrome with one accent, inside a HUD. The HUD has a double
   hairline frame, corner brackets, a faint grid, a three-column top bar (wordmark, monogram,
   navigation) and a fixed bottom-left caption. Every page follows the same layout: status
@@ -146,7 +178,11 @@ Without Actions: `npm run build && npx gh-pages -d dist`, then set Pages to the 
 - **Accessibility:**
   - Skip link, logical tab order and a visible focus ring everywhere.
   - Segmented controls are radio groups with arrow-key support.
-  - The quick drawer is a modal dialog that traps focus and returns it on Esc.
+  - The quick drawer and the "More" sheet are modal dialogs that trap focus and return it to
+    their button on Esc (the sheet also closes on a backdrop tap or a swipe down).
+  - The phone tab bar is a labelled `<nav>` with 48 px+ targets. The active tab has
+    `aria-current="page"` and shows an indicator bar and a bold label, not just a colour.
+  - After a page change, focus moves to the page heading and a live region announces the page.
   - Live regions announce results and toasts.
   - The timetable grid has a screen-reader list version.
   - Text contrast was measured on rendered pixels for every page in Mono Noir, Midnight,
