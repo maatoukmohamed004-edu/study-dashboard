@@ -15,7 +15,7 @@ const presets = {
   'mono-noir': { ...clear, 'appearance.preset': 'mono-noir', 'appearance.colorMode': 'dark', 'appearance.radius': 0, 'background.type': 'dither', 'glass.mode': 'refraction', 'glass.tint': 70, 'hud.grid': true, 'hud.orbStyle': 'dotted' },
   light: { ...clear, 'appearance.preset': 'light', 'appearance.colorMode': 'light', 'appearance.radius': 0, 'background.type': 'dots', 'glass.mode': 'blur', 'glass.tint': 75, 'hud.grid': true, 'hud.orbStyle': 'dotted' },
 };
-// Optional filters: PAGES=week,plan PRESETS=mono-noir WIDTHS=1440
+// Optional filters: PAGES=week,plan PRESETS=mono-noir WIDTHS=1440; EXTRA='{"nav.transition":"none"}' adds settings
 const pages = (process.env.PAGES || 'today,week,plan,resources,absences,check,settings').split(',');
 const widths = (process.env.WIDTHS || '1440,1024').split(',').map(Number);
 const only = process.env.PRESETS ? process.env.PRESETS.split(',') : null;
@@ -30,7 +30,7 @@ async function shoot(dir) {
       await ctx.addInitScript(([v, p]) => {
         localStorage.setItem('study-dashboard:settings:v1', v);
         localStorage.setItem('study-dashboard:v1', p);
-      }, [JSON.stringify({ version: 1, values: { ...s, ...sim } }), seed]);
+      }, [JSON.stringify({ version: 1, values: { ...s, ...sim, ...JSON.parse(process.env.EXTRA || '{}') } }), seed]);
       const page = await ctx.newPage();
       for (const pg of pages) {
         await page.goto(`${BASE}/#/${pg}`, { waitUntil: 'networkidle' });

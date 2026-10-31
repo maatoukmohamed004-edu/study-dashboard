@@ -114,8 +114,7 @@
   pointer-events: none;
 }
 
-/* Out of the way between transitions: an empty layer behind the header still changes how
-   the refracting glass samples its backdrop, by a few colour levels. */
+/* Out of rendering between transitions: no compositing layer behind the header when idle. */
 .vt-layer:empty {
   display: none;
 }
