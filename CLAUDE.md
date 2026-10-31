@@ -554,6 +554,16 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
     between runs (max Δ ≈ 18 of 765 summed RGB in the header strip). `desktop-diff.cjs`
     prints max Δ; compare against a second run of the same build before calling something a
     change.
+21. **On phones, anything wider than the screen widens the whole page.** Mobile browsers then
+    widen the layout viewport, which stretches the fixed tab bar past the edge (this hid "More"
+    on the Sunday check).
+    - Use `minmax(0, 1fr)` grid tracks, not `1fr`.
+    - Cap SVGs that have a width attribute (`max-width: 100%`).
+    - Let wide tables scroll inside their card.
+    - `<html>` clips `overflow-x` while the tab bar is on, as a safety net. `nav-e2e.cjs` checks
+      every page fits 390 px.
+22. **Playwright `isMobile` matters.** Without it, overflow only adds a scrollbar and the trap
+    above stays hidden. Phone checks use `isMobile` + `hasTouch` + the CDP safe-area override.
 
 ## 13. Decisions taken (and why)
 
