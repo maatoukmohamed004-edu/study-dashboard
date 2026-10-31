@@ -6,7 +6,8 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
-// Usage: node tools/verify/matrix.cjs <out-dir> [all | presets | glass | only <preset:page:width> ...]
+// Usage: node tools/verify/matrix.cjs <out-dir> [all | presets | glass | only <preset:page:width[:sheet]> ...]
+// Phone widths (≤ 640) use a touch viewport with emulated safe-area insets; ":sheet" opens "More" first.
 const OUT = path.resolve(process.argv[2] || 'verify-out/matrix');
 fs.mkdirSync(OUT, { recursive: true });
 const BASE = process.env.BASE_URL || 'http://localhost:5173';
@@ -42,11 +43,12 @@ async function measure(page, W, H) {
       };
       const out = [];
       // Only text inside the frame window: content under the "desk" mats and frame lines is hidden by design.
-      const css = getComputedStyle(document.documentElement);
-      const frame = parseFloat(css.getPropertyValue('--frame')) || 0;
-      const frameBottom = parseFloat(css.getPropertyValue('--frame-bottom')) || 0;
-      const inFrame = document.documentElement.dataset.frame === 'on';
+      // The window is read from the frame element (its insets are calc() expressions with safe areas).
+      const fr = document.querySelector('.hud-frame')?.getBoundingClientRect();
+      const inFrame = document.documentElement.dataset.frame === 'on' && fr && fr.width > 0;
+      const win = inFrame ? { t: fr.top, l: fr.left, r: fr.right, b: fr.bottom } : null;
       const caption = document.querySelector('.hud-caption');
+      const floor = Math.min(...[caption, document.querySelector('.tabbar')].filter(Boolean).map((e) => e.getBoundingClientRect().top).filter((v) => v > 0), innerHeight);
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       let n;
       while ((n = walker.nextNode())) {
@@ -57,9 +59,10 @@ async function measure(page, W, H) {
         const r = document.createRange(); r.selectNodeContents(n);
         const b = r.getBoundingClientRect();
         if (b.width < 2 || b.height < 2 || b.bottom < 0 || b.top > innerHeight || b.right < 0 || b.left > innerWidth) continue;
-        const isHud = (caption && caption.contains(el)) || el.closest('.fps');
-        if (!isHud && inFrame && (b.top < frame + 6 || b.bottom > innerHeight - frameBottom - 6 || b.left < frame + 6 || b.right > innerWidth - frame - 6)) continue;
-        if (!isHud && !inFrame && frameBottom && b.bottom > innerHeight - frameBottom) continue;
+        // HUD chrome outside the frame window is measured too: caption, FPS, tab bar, "More" sheet.
+        const isHud = (caption && caption.contains(el)) || el.closest('.fps, .tabbar, .sheet');
+        if (!isHud && inFrame && (b.top < win.t + 6 || b.bottom > win.b - 6 || b.left < win.l + 6 || b.right > win.r - 6)) continue;
+        if (!isHud && !inFrame && b.bottom > floor) continue;
         const cs = getComputedStyle(el);
         if (cs.visibility === 'hidden' || +cs.opacity === 0) continue;
         // Visible only if the top, middle and bottom of the text are all this element (not under the sticky header).
@@ -105,8 +108,9 @@ async function measure(page, W, H) {
 (async () => {
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const report = [];
-  const run = async (tag, settings, pageId, [W, H], doContrast) => {
-    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+  const run = async (tag, settings, pageId, [W, H], doContrast, sheet = false) => {
+    const phone = W <= 640;
+    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: phone, isMobile: phone });
     await ctx.addInitScript(([s, p]) => {
       localStorage.setItem('study-dashboard:settings:v1', s);
       localStorage.setItem('study-dashboard:v1', p);
@@ -114,11 +118,18 @@ async function measure(page, W, H) {
       window.addEventListener('error', (e) => window.__errs.push(String(e.message)));
     }, [JSON.stringify({ version: 1, values: { ...settings, ...sim } }), seed]);
     const page = await ctx.newPage();
+    // Phones: emulate a notch and home indicator (env(safe-area-inset-*)).
+    if (phone) await (await ctx.newCDPSession(page)).send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 47, bottom: 34, left: 0, right: 0 } }).catch(() => {});
     const errs = [];
     page.on('pageerror', e => errs.push(e.message));
     page.on('console', m => m.type() === 'error' && errs.push(m.text()));
     await page.goto(`${BASE}/#/${pageId}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(3500);
+    if (sheet) {
+      await page.tap('.tab-more');
+      await page.waitForSelector('#more-sheet');
+      await page.waitForTimeout(600);
+    }
     // Hold the 3D still (the app pauses its render loops when the tab is hidden); the last frame stays on screen.
     // Software WebGL can't render the animated gradient under many blurred cards fast enough to screenshot.
     await page.evaluate(() => {
@@ -126,7 +137,7 @@ async function measure(page, W, H) {
       document.dispatchEvent(new Event('visibilitychange'));
     });
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${OUT}/${tag}-${pageId}-${W}.png`, timeout: 120000 }).catch((e) => errs.push('SCREENSHOT ' + e.message.split('\n')[0]));
+    await page.screenshot({ path: `${OUT}/${tag}-${pageId}-${W}${sheet ? '-sheet' : ''}.png`, timeout: 120000 }).catch((e) => errs.push('SCREENSHOT ' + e.message.split('\n')[0]));
     let line = '';
     try {
     if (doContrast) {
@@ -136,16 +147,16 @@ async function measure(page, W, H) {
     }
     } catch (e) { line += `  MEASURE-ERROR ${String(e.message).split('\n')[0]}`; }
     errs.push(...(await page.evaluate(() => window.__errs).catch(() => [])));
-    line = `${tag.padEnd(22)} ${pageId.padEnd(10)} ${W}  console:${errs.length ? 'ERR ' + errs[0].slice(0, 70) : 'clean'}` + line;
+    line = `${tag.padEnd(22)} ${(pageId + (sheet ? '+sheet' : '')).padEnd(16)} ${W}  console:${errs.length ? 'ERR ' + errs[0].slice(0, 70) : 'clean'}` + line;
     report.push(line);
     console.log(line);
     await ctx.close();
   };
   if (mode === 'only') {
     for (const spec of process.argv.slice(4)) {
-      const [tag, pg, w] = spec.split(':');
+      const [tag, pg, w, extra] = spec.split(':');
       const settings = tag.startsWith('glass-') ? { ...presets['mono-noir'], 'glass.mode': tag.slice(6) } : presets[tag] ?? { ...presets['mono-noir'], ...(tag === 'graphite' ? { ...clear, 'appearance.preset': 'graphite', 'appearance.colorMode': 'dark', 'appearance.radius': 6, 'background.type': 'dots', 'glass.mode': 'blur', 'glass.tint': 70 } : {}) };
-      await run(tag, settings, pg, sizes.find(([sw]) => String(sw) === w), true);
+      await run(tag, settings, pg, sizes.find(([sw]) => String(sw) === w), true, extra === 'sheet');
     }
   }
   if (mode === 'all' || mode === 'presets')

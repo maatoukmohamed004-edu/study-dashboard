@@ -28,5 +28,9 @@ def sheet(name, rows, cols, cell_w, cell_h, items):
 for p in presets:
     sheet(f'{p}-desktop.jpg'.replace('.jpg', '.png'), 2, 4, 560, 350, [(f'{M}/{p}-{pg}-1440.png', f'{p} · {pg} · 1440') for pg in pages])
     sheet(f'{p}-phone.png', 1, 7, 240, 520, [(f'{M}/{p}-{pg}-390.png', f'{pg}') for pg in pages])
+for p in presets:
+    items = [(f'{M}/{p}-{pg}-390-sheet.png', f'{pg} + More') for pg in pages]
+    if any(os.path.exists(path) for path, _ in items):
+        sheet(f'{p}-phone-sheet.png', 1, 7, 240, 520, items)
 sheet('glass-modes.png', 2, 4, 560, 350, [(f'{M}/glass-{g}-today-1440.png', f'glass {g} · 1440') for g in ['off','blur','refraction','liquid']] + [(f'{M}/glass-{g}-today-390.png', f'glass {g} · 390') for g in ['off','blur','refraction','liquid']])
 print('ok')
