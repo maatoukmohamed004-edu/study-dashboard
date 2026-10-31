@@ -30,6 +30,10 @@ npm run preview      # serve dist/ locally
 npm run lint         # oxlint
 ```
 
+Changing the code? Read [`CLAUDE.md`](CLAUDE.md) first: it covers how the app is put together,
+the rules that must not break, known traps, and the screenshot and settings checks in
+`tools/verify/`.
+
 ## Settings
 
 Open **Settings** with the gear in the top bar (`#/settings`), or jump to one section with
