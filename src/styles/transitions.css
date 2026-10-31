@@ -114,6 +114,12 @@
   pointer-events: none;
 }
 
+/* Out of the way between transitions: an empty layer behind the header still changes how
+   the refracting glass samples its backdrop, by a few colour levels. */
+.vt-layer:empty {
+  display: none;
+}
+
 .vt-disc {
   position: absolute;
   border-radius: 50%;
