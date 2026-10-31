@@ -1,0 +1,130 @@
+/* ─── Page transitions (driven by src/lib/transition.ts) ─────────────────────
+   While a View Transition runs, <html> carries data-vt="reveal|fade". Persistent chrome gets its
+   own view-transition-name so it is captured separately and shown in its new state at once:
+   only the page content (the root snapshot) animates. The background canvas and the grid stay
+   in the root snapshot on purpose: named groups always paint above the root, so naming the
+   full-screen background would cover the page. They are identical in the old and new snapshots,
+   so the disc passes over them invisibly. */
+
+@property --vt-r {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+:root[data-vt] .header {
+  view-transition-name: vt-header;
+}
+
+:root[data-vt] .tabbar {
+  view-transition-name: vt-tabbar;
+}
+
+:root[data-vt] .hud-frame {
+  view-transition-name: vt-frame;
+}
+
+:root[data-vt] .hud-mat-top {
+  view-transition-name: vt-mat-top;
+}
+
+:root[data-vt] .hud-mat-bottom {
+  view-transition-name: vt-mat-bottom;
+}
+
+:root[data-vt] .hud-mat-left {
+  view-transition-name: vt-mat-left;
+}
+
+:root[data-vt] .hud-mat-right {
+  view-transition-name: vt-mat-right;
+}
+
+:root[data-vt] .hud-corner.tl {
+  view-transition-name: vt-corner-tl;
+}
+
+:root[data-vt] .hud-corner.tr {
+  view-transition-name: vt-corner-tr;
+}
+
+:root[data-vt] .hud-corner.bl {
+  view-transition-name: vt-corner-bl;
+}
+
+:root[data-vt] .hud-corner.br {
+  view-transition-name: vt-corner-br;
+}
+
+:root[data-vt] .hud-caption {
+  view-transition-name: vt-caption;
+}
+
+:root[data-vt] .fab-stack {
+  view-transition-name: vt-fab;
+}
+
+/* Chrome: no movement, no crossfade; the new state shows from the first frame. */
+:root[data-vt]::view-transition-group(*) {
+  animation: none;
+}
+
+:root[data-vt]::view-transition-old(*) {
+  animation: none;
+  opacity: 0;
+}
+
+:root[data-vt]::view-transition-new(*) {
+  animation: none;
+}
+
+/* Page content: the old page stays fully visible under the new one (no dimming, as in the video). */
+:root[data-vt]::view-transition-old(root) {
+  opacity: 1;
+}
+
+:root[data-vt='reveal']::view-transition-old(root),
+:root[data-vt='reveal']::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
+/* The disc: opaque inside, feathered over f(r) = k·r + f0, transparent outside.
+   --vt-r is animated from 0 to --vt-end by transition.ts. */
+:root[data-vt='reveal']::view-transition-new(root) {
+  -webkit-mask-image: radial-gradient(
+    circle at var(--vt-x) var(--vt-y),
+    #000 calc(var(--vt-r) * (1 - var(--vt-k)) - var(--vt-f0)),
+    transparent var(--vt-r)
+  );
+  mask-image: radial-gradient(
+    circle at var(--vt-x) var(--vt-y),
+    #000 calc(var(--vt-r) * (1 - var(--vt-k)) - var(--vt-f0)),
+    transparent var(--vt-r)
+  );
+}
+
+/* ─── Fallback overlays (no View Transitions API, and the Disc wash style) ──
+   The layer sits inside .shell, above the page content but below the header (z 40), and below
+   the HUD frame and tab bar, which live outside .shell. Only transform and opacity animate. */
+.vt-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.vt-disc {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  will-change: transform, opacity;
+}
+
+.vt-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0;
+  will-change: opacity;
+}
