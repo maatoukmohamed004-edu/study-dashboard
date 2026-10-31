@@ -15,14 +15,16 @@ const presets = {
   'mono-noir': { ...clear, 'appearance.preset': 'mono-noir', 'appearance.colorMode': 'dark', 'appearance.radius': 0, 'background.type': 'dither', 'glass.mode': 'refraction', 'glass.tint': 70, 'hud.grid': true, 'hud.orbStyle': 'dotted' },
   light: { ...clear, 'appearance.preset': 'light', 'appearance.colorMode': 'light', 'appearance.radius': 0, 'background.type': 'dots', 'glass.mode': 'blur', 'glass.tint': 75, 'hud.grid': true, 'hud.orbStyle': 'dotted' },
 };
-const pages = ['today', 'week', 'plan', 'resources', 'absences', 'check', 'settings'];
+// Optional filters: PAGES=week,plan PRESETS=mono-noir WIDTHS=1440
+const pages = (process.env.PAGES || 'today,week,plan,resources,absences,check,settings').split(',');
 const widths = (process.env.WIDTHS || '1440,1024').split(',').map(Number);
+const only = process.env.PRESETS ? process.env.PRESETS.split(',') : null;
 const seed = fs.readFileSync(path.join(__dirname, 'seed.json'), 'utf8');
 
 async function shoot(dir) {
   fs.mkdirSync(dir, { recursive: true });
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-  for (const [name, s] of Object.entries(presets))
+  for (const [name, s] of Object.entries(presets).filter(([n]) => !only || only.includes(n)))
     for (const W of widths) {
       const ctx = await browser.newContext({ viewport: { width: W, height: 900 }, deviceScaleFactor: 1, reducedMotion: 'no-preference' });
       await ctx.addInitScript(([v, p]) => {
@@ -53,15 +55,18 @@ async function shoot(dir) {
 function compare(a, b) {
   let total = 0, changed = 0;
   for (const f of fs.readdirSync(a).filter((f) => f.endsWith('.png')).sort()) {
-    if (!fs.existsSync(path.join(b, f))) { console.log(`MISSING ${f}`); changed++; continue; }
+    if (!fs.existsSync(path.join(b, f))) continue;
     const A = PNG.sync.read(fs.readFileSync(path.join(a, f)));
     const B = PNG.sync.read(fs.readFileSync(path.join(b, f)));
     total++;
     if (A.width !== B.width || A.height !== B.height) { console.log(`SIZE  ${f}`); changed++; continue; }
-    let n = 0;
-    for (let i = 0; i < A.data.length; i += 4)
-      if (Math.abs(A.data[i] - B.data[i]) + Math.abs(A.data[i + 1] - B.data[i + 1]) + Math.abs(A.data[i + 2] - B.data[i + 2]) > 6) n++;
-    if (n) { changed++; console.log(`DIFF  ${f}  ${n} px`); }
+    let n = 0, max = 0;
+    for (let i = 0; i < A.data.length; i += 4) {
+      const d = Math.abs(A.data[i] - B.data[i]) + Math.abs(A.data[i + 1] - B.data[i + 1]) + Math.abs(A.data[i + 2] - B.data[i + 2]);
+      if (d > 6) n++;
+      if (d > max) max = d;
+    }
+    if (n) { changed++; console.log(`DIFF  ${f}  ${n} px, max Δ ${max} (sum of RGB, 0–765)`); }
   }
   console.log(`${total} image pairs compared, ${changed} differ`);
 }

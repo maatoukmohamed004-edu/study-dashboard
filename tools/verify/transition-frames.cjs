@@ -72,6 +72,14 @@ function regionDiff(a, b, x0, y0, x1, y1) {
     const box = await page.locator(sc.click).first().boundingBox();
     const press = { x: Math.round(box.x + box.width * 0.3), y: Math.round(box.y + box.height * 0.6) };
     const before = await page.screenshot();
+    // Crosshair at the press point. It is placed before the click with its own view-transition-name,
+    // so it is captured as a group above the header and stays visible in every frame.
+    await page.evaluate(({ x, y }) => {
+      const m = document.createElement('div');
+      m.id = '__press';
+      m.style.cssText = `position:fixed;left:${x - 9}px;top:${y - 9}px;width:18px;height:18px;z-index:2147483647;pointer-events:none;border:2px solid #ff2d55;border-radius:50%;box-shadow:0 0 0 1px #000;view-transition-name:vt-test-press`;
+      document.body.appendChild(m);
+    }, press);
 
     // Click, then catch the animation as soon as it exists and pause it.
     await page.evaluate(() => {
@@ -90,13 +98,6 @@ function regionDiff(a, b, x0, y0, x1, y1) {
     await page.waitForFunction(() => window.__caught, null, { timeout: 10000 });
     const caught = await page.evaluate(() => window.__caught);
     const origin = await page.evaluate(() => ({ vt: document.documentElement.dataset.vt || null, x: document.documentElement.style.getPropertyValue('--vt-x'), y: document.documentElement.style.getPropertyValue('--vt-y') }));
-    // Crosshair at the press point (drawn on top of everything, ignored by the page).
-    await page.evaluate(({ x, y }) => {
-      const m = document.createElement('div');
-      m.id = '__press';
-      m.style.cssText = `position:fixed;left:${x - 9}px;top:${y - 9}px;width:18px;height:18px;z-index:2147483647;pointer-events:none;border:2px solid #ff2d55;border-radius:50%;box-shadow:0 0 0 1px #000`;
-      document.documentElement.appendChild(m);
-    }, press);
 
     const times = sc.times || TIMES;
     const frames = [];
