@@ -138,6 +138,8 @@ const ok = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.locator('[data-key="sim.time"] input').fill('13:30');
   ok('Simulation banner appears', (await page.locator('.sim-banner').innerText()).includes('28/11'));
   await page.goto(BASE + '/#/today');
+  // Page changes run inside the page transition (one frame or more later): wait for the new page.
+  await page.waitForFunction(() => document.querySelector('.hero-title')?.textContent?.toUpperCase().includes('SATURDAY'), null, { timeout: 3000 }).catch(() => {});
   ok('Today follows the simulated date', (await page.locator('.hero-title').innerText()).toUpperCase().includes('SATURDAY'));
   await page.getByRole('button', { name: 'Back to real time' }).click();
   ok('Back to real time removes the banner', (await page.locator('.sim-banner').count()) === 0);

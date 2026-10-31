@@ -44,8 +44,10 @@ const rect = (page, sel) => page.evaluate((s) => {
   return r && { x: r.x, y: r.y, w: r.width, h: r.height, top: r.top, bottom: r.bottom };
 }, sel);
 
+// A quick flick: three moves, so the gesture stays well under the app's 600 ms swipe limit
+// even when this machine is busy.
 async function swipe(cdp, from, to) {
-  const steps = 8;
+  const steps = 3;
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y }] });
   for (let i = 1; i <= steps; i++) {
     const x = from.x + ((to.x - from.x) * i) / steps;
