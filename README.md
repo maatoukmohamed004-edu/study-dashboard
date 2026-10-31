@@ -172,9 +172,11 @@ Without Actions: `npm run build && npx gh-pages -d dist`, then set Pages to the 
 - **Performance:**
   - devicePixelRatio is capped at 1.5. The gradient renders at 1× ("high" allows 1.5×).
   - Quality "auto" uses drei's `PerformanceMonitor` to lower the resolution when frames drop.
-  - three.js, ShaderGradient, html2canvas, the Settings UI and every page except Today are
-    lazy chunks. The first load is about 99 kB of gzipped JavaScript (an 80 kB entry chunk
-    plus the shared theme, settings and router chunks) and 16 kB of CSS.
+  - three.js, ShaderGradient, html2canvas, the Settings UI, the phone tab bar and every page
+    except Today are lazy chunks, and the pages are preloaded once the browser is idle. The
+    first load is about 103 kB of gzipped JavaScript (an 80 kB entry chunk plus the shared
+    theme and router chunks) and 18 kB of CSS. That's about 4 kB more than before page
+    transitions and the navigation settings were added.
 - **Accessibility:**
   - Skip link, logical tab order and a visible focus ring everywhere.
   - Segmented controls are radio groups with arrow-key support.
@@ -217,3 +219,21 @@ Without Actions: `npm run build && npx gh-pages -d dist`, then set Pages to the 
 6. **Exam-mode items have start times only**, so the Week grid draws them as short markers.
 7. **Absence limits start empty.** Enter the scolarité's numbers; no colour shows until a
    limit is set.
+8. **Page transitions were tested only in Chromium**, and only headless.
+   - Safari 18+ and recent Firefox also support View Transitions, so they should get the same
+     disc, but neither was tested.
+   - Browsers without the API get the overlay version. That was tested by removing the API in
+     Chromium.
+   - The disc's soft edge is a mask redrawn every frame, so how smooth it is on an older phone
+     is unknown.
+9. **A tap during a transition lands a moment late.** In Chromium the transition layer
+   catches taps, so the app ends the transition and then passes your tap on (the newest tap
+   always wins).
+10. **The phone layout was tested in an emulated phone,** not on a real one. That includes the
+    tab bar, the "More" sheet, notch and home-indicator spacing (emulated insets), keyboard
+    hiding and swipes. Real-device feel is unverified.
+11. **The tab bar hides whenever a text field has focus.** That also happens with a hardware
+    keyboard, or after you close the on-screen keyboard while the field still has focus. Tap
+    outside the field to bring the bar back.
+12. **Swipe between pages** (off by default) can clash with the phone's own edge-swipe "back"
+    gesture: start a swipe away from the screen edge.

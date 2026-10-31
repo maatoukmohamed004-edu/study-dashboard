@@ -28,6 +28,9 @@ about z = 1.5 in every period. The plan runs week by week from **Mon 2026-11-02*
 | `#/check` | Sunday check | Three weekly numbers plus trend charts vs. targets; z-score |
 | `#/settings[/section]` | Settings | Everything configurable (section 6) |
 
+On phones (≤ 640 px) navigation is a bottom tab bar (four tabs + "More" sheet), and changing
+page plays a disc transition everywhere. See §7a.
+
 ## 2. Hard rules: do not break these
 
 1. **`three` stays at `~0.182.x`.** `@shadergradient/react` 2.4.20 crashes on three 0.187
@@ -35,10 +38,15 @@ about z = 1.5 in every period. The plan runs week by week from **Mon 2026-11-02*
    deprecation warning through fiber. `@types/three` matches. (`^0.182.0` in package.json is
    the same range as `~0.182.0` for a 0.x version.)
 2. **three.js, ShaderGradient and html2canvas stay in lazy chunks.** The first-load JS must
-   stay near **100 kB gzipped**. It is currently about 99 kB: an 80 kB entry chunk plus the
-   preloaded `theme`, `settings`, `env` and `jsx-runtime` chunks. CSS is about 16 kB. Every page
-   except Today, plus the Settings UI and the quick drawer, are `React.lazy`. Measure the entry
-   chunk plus every `<link rel="modulepreload">` in `dist/index.html`, not just `index-*.js`.
+   stay near **100 kB gzipped**. It is currently about 103 kB: an 80 kB entry chunk plus the
+   preloaded `theme`, `env` and `jsx-runtime` chunks. It was 99 kB before the navigation layer
+   and transitions were added. CSS is about 18 kB.
+   - Lazy: every page except Today (through `src/pages/registry.ts`, preloaded when idle), the
+     Settings UI, the quick drawer, the tab bar and the "More" sheet.
+   - Measure the entry chunk plus every `<link rel="modulepreload">` in `dist/index.html`,
+     not just `index-*.js`.
+   - Splitting the 1.4 kB transition engine into its own chunk saved nothing (chunk overhead),
+     so it stays static.
 3. **Never touch, rename or migrate the progress key `study-dashboard:v1`**, nor its backup file
    format (`exportJSON` / `parseBackup` in `src/lib/store.ts`). Settings are a separate key
    (`study-dashboard:settings:v1`) and must never write progress.
@@ -62,6 +70,13 @@ about z = 1.5 in every period. The plan runs week by week from **Mon 2026-11-02*
 11. **Settings are typed and declarative.** Every setting is one entry in
     `src/data/settings-schema.ts`, and the UI is generated from it. Don't hand-build setting
     controls.
+12. **All navigation goes through the navigation layer in `src/lib/env.ts`.**
+    - Links are plain `<a href="#/…">`; never add per-link click handlers that change the route.
+    - Code that navigates calls `navigate('#/…', { origin })`.
+    - Don't read or write `location.hash` anywhere else.
+13. **Desktop (≥ 641 px) must stay visually identical** unless a change is asked for there.
+    - Phone-only work goes inside `@media (max-width: 640px)` and/or `[data-tabbar='on']`.
+    - Prove it with `tools/verify/desktop-diff.cjs` (§11).
 
 ## 3. Stack
 
@@ -94,13 +109,14 @@ npm run typecheck  # tsc -b
 ## 4. File map
 
 ```
-index.html                  theme-color meta, #root, favicon
+index.html                  theme-color meta, viewport-fit=cover (insets handled by --safe-* tokens), #root, favicon
 vite.config.ts              base './', React plugin
 .github/workflows/deploy.yml  push to main → npm ci, build → GitHub Pages (Source must be "GitHub Actions")
-src/main.tsx                font imports, the 4 stylesheets, startTheme() BEFORE createRoot
+src/main.tsx                font imports, the 6 stylesheets, startTheme() BEFORE createRoot
 src/fonts.d.ts              declare module '@fontsource-variable/*' (bare side-effect imports)
-src/App.tsx                 shell: skip link, Background, HudChrome, Header, notices, lazy pages,
-                            Caption, FabStack, lazy QuickSettings drawer, Toaster, FpsMeter
+src/App.tsx                 shell: skip link, Background, HudChrome, Header, notices, PageHost,
+                            .vt-layer (fallback transition overlay), route announcer, Caption,
+                            FabStack, lazy TabBar + MoreSheet (phones), lazy QuickSettings, Toaster, FpsMeter
 
 src/data/
   plan.ts                   THE study plan (single source of content); typed sections, see §5
@@ -112,7 +128,11 @@ src/lib/
   settings.ts               settings store, key study-dashboard:settings:v1: coerce, migrate, sync, import/export
   theme.ts                  resolve(settings, media) → Resolved; applyTheme() → CSS vars + data-*; contrast checks, autoFix
   capabilities.ts           caps {webgl, chromium}; live media store {phone, osReducedMotion, osDark, visible}
-  env.ts                    now() (real or simulated clock), useNow/useToday/useSimulation, DPR cap, hash router + PAGES
+  env.ts                    now() (real or simulated clock), useNow/useToday/useSimulation, DPR cap, and the
+                            NAVIGATION LAYER: hash routes, navigate(), link interception, press origin,
+                            per-entry scroll restore, focus + announce, tap replay during transitions
+  transition.ts             page transitions: View Transition disc reveal / crossfade, overlay disc
+                            (wash, and the no-API fallback), reduced motion, skip-to-latest
   color.ts                  hex/rgb, luminance, WCAG contrast, mix, rgba, inkOn
   schedule.ts               plan → concrete days and blocks (weekFor, scheduleFor, weekSchedule, plannedMinutes)
   dates.ts                  ISO-date helpers (local time, no library)
@@ -143,14 +163,27 @@ src/components/
   BackupButtons.tsx         "Export progress" / "Import progress" (format unchanged since v1)
   Rich.tsx, Toast.tsx, FpsMeter.tsx, SafeBoundary.tsx, icons.tsx
 
+  nav/TabBar.tsx            phone tab bar (lazy): 4 tabs + More, re-tap to top, keyboard watch, swipe
+  nav/MoreSheet.tsx         "More" bottom sheet (lazy): modal, focus trap, Esc/backdrop/swipe-down close
+  nav/pages.ts              PAGE_META (label, short label, icon per page), morePages(), swipeOrder()
+
 src/pages/                  TodayPage (eager), Week, Plan, Resources, Absences, Check, Settings (lazy)
+  registry.ts               page loaders, preloadPage() / preloadAll(), loadedPage()
 src/styles/
   base.css                  fallback tokens, type roles (.label/.display/.giant), spacing scale, focus, skip link, reduced motion
   hud.css                   background layers, HUD frame/corners/grid/mats, top bar, nav, glass layers, banner, drawer, toast, responsive top bar
   components.css            buttons, fields, checkbox, segmented, tags, badges, status strip, hero, progress line, meta, cards, tables
-  pages.css                 per-page layouts, settings page, dither stand-in
+  pages.css                 per-page layouts, settings page (incl. the tab picker), dither stand-in
+  nav.css                   phone tab bar, "More" sheet, keyboard-open rule, phone --frame-bottom
+  transitions.css           @property --vt-r, chrome view-transition-names, the disc mask, overlay layer
 
 tools/verify/               headless-Chromium checks (dev only, not shipped): see §11
+  matrix.cjs                screenshots + pixel contrast (phones: safe-area insets; ":sheet" opens More)
+  settings-e2e.cjs          61 settings checks
+  nav-e2e.cjs               tab bar, More sheet, focus, scroll restore, keyboard, swipe, transition settings
+  transition-frames.cjs     paused/seeked frames at 0–650 ms with a press marker, per transition style
+  desktop-diff.cjs          deterministic desktop shots + pixel compare (before/after proofs)
+  sheets.py, seed.json      contact sheets; the progress fixture used by every script
 ```
 
 ## 5. Content: `src/data/plan.ts`
@@ -177,7 +210,7 @@ template), `weeks` (week by week, `weeks[0].start` = `planStart`), `fixedDates` 
 | Field | Meaning |
 | --- | --- |
 | `key`, `section`, `label`, `description` | Identity and the text shown in the UI |
-| `control` | `segmented`, `select`, `toggle`, `range` (min/max/step/unit), `color` (swatches + hex, `null` = use the preset's colour), `checkboxes`, `date` or `time` |
+| `control` | `segmented`, `select`, `toggle`, `range` (min/max/step/unit), `color` (swatches + hex, `null` = use the preset's colour), `checkboxes`, `date`, `time`, or `tabs` (exactly `count` distinct options in order; each slot is a select and picking a used option swaps) |
 | `default` | Default value |
 | `dependsOn: {key, is}` | Hidden when the condition isn't met |
 | `requires: 'webgl' \| 'chromium'` | On the setting or on individual options; unmet options show "(needs …)" |
@@ -186,7 +219,7 @@ template), `weeks` (week by week, `weeks[0].start` = `planStart`), `fixedDates` 
 
 The object is checked with `satisfies { [K in SettingKey]: SettingDef<K> }`.
 
-**All 37 keys:**
+**All 45 keys:**
 - `appearance.`: preset, colorMode, accent, background, textSize (90–120), density, radius
   (0–20, default 0), monoUppercase, displayFont
 - `background.`: type (solid / gradient / dots / animated / dither, **default `dither`**),
@@ -195,6 +228,10 @@ The object is checked with `satisfies { [K in SettingKey]: SettingDef<K> }`.
 - `glass.`: mode (off / blur / refraction / liquid, **default `refraction`**), blur, refraction,
   tint, saturation, edge, applyTo (header / cards / buttons)
 - `hud.`: frame, corners, grid, caption, orb, orbStyle (dotted / liquid)
+- `nav.`: transition (reveal / wash / fade / none, **default `reveal`**), duration (300–1200 ms,
+  default 650), softness (0–100 %, default 35), origin (press / center), bottomBar (default on),
+  labels (default on), swipe (default off), tabs (exactly 4 `NavPage`s, default
+  today/week/plan/absences)
 - `motion.`: mode (auto / reduced / full), speed
 - `sim.`: enabled, date, time
 - `diag.`: fps
@@ -320,6 +357,82 @@ in view and sets `data-more` on the nav so CSS fades the edge(s) hiding more lin
 - devicePixelRatio is capped at 1.5. The background gradient renders at 1× ("high" allows 1.5×).
 - Loops pause when the tab is hidden and hold still (demand frameloop) with reduced motion.
 
+## 7a. Navigation, phone tab bar and page transitions (phase 3)
+
+**Navigation layer** (`env.ts`). One document-level click listener intercepts `<a href="#/…">`
+(no modifier keys, no target/download), calls `preventDefault()` and `navigate(href, { origin })`.
+- **Origin:** the press point (`clientX/Y`); for keyboard activation (`detail === 0`), the link's
+  centre; a synthetic click within 700 ms of a press reuses that press. Back/forward reuses the
+  last origin, or crossfades if there is none.
+- **History:** `pushState({ navKey })`. Each entry's scroll position is kept in a map (updated on
+  scroll) and restored on popstate. `history.scrollRestoration = 'manual'`.
+- **Commit:** `commit()` bumps a token (the newest navigation wins) and waits for the page
+  chunk (`preloadPage`, at most 1.5 s). It then runs `runTransition(apply)`, where `apply` does
+  `flushSync` of the route store, scrolls, focuses `#main h1` (tabindex −1, no ring) and
+  writes "<Page> page" into `#route-announcer`.
+- **Echo guard:** popstate and hashchange both fire on back/forward. The guard compares with
+  `target` (the pending destination), not just the committed `route`.
+- **Taps during a View Transition:** they hit `<html>` (the overlay), and
+  `pointer-events: none` on `::view-transition` does not help in Chromium 153. So `onPress`
+  skips the transition, and `onOverlayClick` waits until its overlay is gone, then
+  `elementFromPoint(...).click()`.
+
+**Transitions** (`transition.ts`, `transitions.css`). Style comes from `nav.transition`.
+Reduced motion always becomes a 160 ms crossfade. Duration = `nav.duration / motion.speed`.
+- **Reveal + View Transitions API:** `<html data-vt="reveal">`, `--vt-x/-y/-k/-f0/-end`, then
+  `startViewTransition(apply)`. On `ready`, WAAPI animates the registered `--vt-r` (0 →
+  `--vt-end`) on `::view-transition-new(root)` with `cubic-bezier(.54,0,.34,.99)`.
+  - The mask is `radial-gradient(circle at x y, #000 r(1-k)-f0, transparent r)`, with
+    `k = 0.17·softness` and `f0 = 0.11·softness·R`; R is the distance to the farthest corner.
+  - The old root stays fully visible (no dim, as in the video).
+  - Animations use `fill: both` and are cancelled when the transition ends: with no fill, a
+    one-frame flash of the old page appears at the end.
+  - A per-transition id (`vtSeq`) stops a skipped transition from clearing the flag of its
+    replacement.
+- **Crossfade + API:** WAAPI opacity on the old and new root images.
+- **Wash (all browsers), and reveal/crossfade without the API:**
+  - A `.vt-disc` (radial-gradient, feathered by `0.3·softness` of its radius) or a `.vt-veil`
+    is added to `.vt-layer`. That layer sits inside `.shell` at z 39: above the content, below
+    the header, tab bar and HUD.
+  - The cover phase (55 %) uses `transform: scale` or `opacity`. The page swaps while
+    covered, then the cover fades (45 %).
+  - Wash uses `--vt-wash` = bg mixed 24 % toward the accent: no white flash in Mono Noir.
+- **Chrome during a View Transition:** `[data-vt]` gives the header, tab bar, HUD frame, mats,
+  corners, caption and floating buttons `view-transition-name`s. Their groups and old images
+  don't animate (old opacity 0), so chrome shows its new state from frame 1.
+  - **Not named, on purpose:** `.bg` (canvas) and `.hud-grid`. Named groups always paint above
+    the root, so a named full-screen background would cover the page.
+  - Named glass (backdrop-filter) keeps its blur in Chromium 153 (tested).
+
+**Phone tab bar** (`nav/TabBar.tsx`, `nav.css`; shown when `media.phone && nav.bottomBar`;
+`<html data-tabbar>`).
+- **Bar:**
+  - fixed, `--tabbar-h` 64 px (56 px with labels off) plus `--safe-b`;
+  - glass = the header's GlassLayer target;
+  - z 46, above the mats.
+- **Bottom of the frame:** `--frame-bottom` on phones with the bar = bar + inset + a 30 px
+  caption strip. The floating buttons, toasts, drawer and `.shell` padding all key off it.
+- **Header:** `compact` drops the top nav, and the gear becomes the Quick settings button. The
+  floating Quick settings button is hidden (`showQuick={false}`).
+- **Tabs:** `aria-current`, a `.tab-mark` indicator and a bold label. Re-tapping the active tab
+  `preventDefault`s and scrolls to the top. "More" has `aria-haspopup="dialog"`, and
+  `data-active` when the current page lives in More.
+- **Keyboard:** while a text input has focus, `<html data-kb="open">` hides the bar, caption and
+  floating button and shrinks `--frame-bottom`.
+- **Swipe** (`nav.swipe`): a flick of ≥ 70 px, mostly horizontal, < 600 ms (event timestamps).
+  It is ignored when it starts in an input, a dialog, the bar, or any element that scrolls
+  sideways. Order = tabs, then the More pages except Settings.
+
+**More sheet** (`nav/MoreSheet.tsx`). A modal dialog:
+- focus starts on the first link and is trapped;
+- Esc, the backdrop, the close button or a drag down (> 90 px or > 0.6 px/ms) close it with
+  `'dismiss'`, and App returns focus to the More button;
+- choosing a page closes it with `'navigate'`, and the router focuses the heading;
+- a drag that ends on a link does not click it.
+
+**Safe areas.** `--safe-t/r/b/l` = `env(safe-area-inset-*, 0px)`. `--frame-t/-l/-r` and
+`--frame-bottom` include them. All four are 0 on desktops, so desktop geometry is unchanged.
+
 ## 8. Progress data (`lib/store.ts`), unchanged since phase 1
 
 `SavedState { version: 1, blocks[date][blockId] → {done, startedAt, delayMin}, classes[date],
@@ -343,8 +456,13 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
 - Visible `:focus-visible` ring in `--focus`.
 - Segmented controls are radiogroups: Arrow keys, Home and End.
 - Colour swatches are `aria-pressed` buttons, not radios.
-- The quick drawer is `role=dialog aria-modal`: focus trap, Esc closes, focus returns to the
-  opener.
+- The quick drawer and the "More" sheet are `role=dialog aria-modal`: focus trap, Esc closes,
+  focus returns to the opener (passed in explicitly; tapped buttons don't always take focus on
+  touch devices).
+- After a page change, focus moves to the page's `<h1>` and `#route-announcer` (polite live
+  region) says "<Page> page".
+- Tab bar: labelled `<nav>`, targets ≥ 48 px, active tab = indicator bar + bold label +
+  `aria-current` (never colour alone); labels off keeps accessible names.
 - Toasts use `role=status`; the contrast summary is `aria-live`.
 - The Week grid has a screen-reader list version.
 - Status is never colour-only: icons and words too.
@@ -414,8 +532,32 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
     Focus returns on the next animation frame.
 12. **Shell tip for sandboxed sessions:** `pkill -f <pattern>` can match and kill the calling
     shell itself. Kill by PID instead.
+13. **View Transitions swallow taps.** In Chromium 153 every tap during a transition targets
+    `<html>`, even with `::view-transition { pointer-events: none }`. Skip the transition on
+    `pointerdown` and replay the click after `vt.finished`; one rAF is not enough.
+14. **A named full-screen layer paints over the page during a transition.** All named groups
+    sit above the root group, so the background and grid must not get a
+    `view-transition-name`.
+15. **Back/forward fires popstate *and* hashchange.** Handling both started two transitions,
+    and the skipped one deleted the live one's flag. Hence the `target` echo guard and the
+    `vtSeq` id.
+16. **`--frame-bottom` is a `calc()` now.** `getComputedStyle().getPropertyValue('--frame-bottom')`
+    returns the expression, not pixels. Measure the `.hud-frame` element instead, as
+    `matrix.cjs` does.
+17. **Programmatic focus on `<h1>` shows a focus ring** in headless Chromium (no prior pointer
+    input). `.main h1[tabindex='-1']:focus { outline: none }`.
+18. **Tests that read the DOM right after a hash change** now race the transition (the swap
+    happens a frame or more later). Wait for the condition.
+19. **Swipe timing:** measure with event `timeStamp`, not `performance.now()` in the handler.
+    A busy main thread otherwise turns flicks into pans (it also broke CDP-driven tests).
+20. **Glass rendering noise:** refraction/blur over the same page can differ by a few levels
+    between runs (max Δ ≈ 18 of 765 summed RGB in the header strip). `desktop-diff.cjs`
+    prints max Δ; compare against a second run of the same build before calling something a
+    change.
 
-## 13. Decisions taken (and why), phase 2
+## 13. Decisions taken (and why)
+
+**Phase 2 (look and settings):**
 
 - Display fonts: Sofia Sans Extra Condensed (default), Antonio, Big Shoulders Display. Title:
   Unbounded. Labels: Atkinson Hyperlegible Mono. Bricolage Grotesque (phase 1) removed.
@@ -430,6 +572,20 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
 - The animated gradient renders at 1× DPR by default.
 - The phone nav uses short labels and scrolls sideways, with edge fades.
 
+**Phase 3 (navigation):**
+- The default transition is Disc reveal, matched to the reference video (a wallpaper "grow"
+  transition): strong ease-in-out, soft edge, no dimming. 650 ms by default; 1000 ms matches
+  the video.
+- Wash uses an accent tint (24 % accent over bg), not the raw accent: a near-white disc in
+  Mono Noir would flash.
+- Default tabs: Today, Week, Plan, Absences. Absences is always a tab by default. The picker
+  allows moving it to More, and shows a note when it's there.
+- On phones the top gear opens Quick settings, and Settings lives in More.
+- The keyboard rule is focus-based: the bar hides while any text field has focus.
+- Swipe order is the tabs, then the More pages except Settings.
+- The page heading takes focus after navigation with no visible ring; the announcer also
+  speaks.
+
 ## 14. History
 
 - **Phase 1:** built the app from the plan with the original stack (ShaderGradient background,
@@ -443,6 +599,13 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
   - Built the verification tools.
   - Final fixes: removed `color-mix` for html2canvas; made the phone nav keep the current page
     in view.
+- **Phase 3 (branch `feat/mobile-nav-transition`):**
+  - phone tab bar plus "More" sheet;
+  - one navigation layer with scroll restore, focus and announcements;
+  - disc page transitions (View Transitions with an overlay fallback);
+  - the Navigation settings section (45 keys in all);
+  - safe-area tokens;
+  - verification scripts for navigation, transitions and desktop before/after.
 
 ## 15. Known limits
 
@@ -454,6 +617,10 @@ See README "Limits":
 - the header orb loads three.js on phones;
 - exam items have start times only;
 - absence limits start empty.
+
+- page transitions and safe areas are verified only in headless Chromium (Safari and Firefox
+  untested); the disc mask repaints each frame (GPU, not pure compositing);
+- a tap during a transition lands a frame late (skip + replay).
 
 Not yet built: installable PWA (manifest, icons, offline service worker) and any
 sync between devices (data is per browser, moved by export/import).
