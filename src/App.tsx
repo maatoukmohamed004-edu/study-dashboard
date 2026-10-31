@@ -3,7 +3,6 @@ import { Background } from './components/Background'
 import { FpsMeter } from './components/FpsMeter'
 import { Header } from './components/Header'
 import type { SheetClose } from './components/nav/MoreSheet'
-import { TabBar } from './components/nav/TabBar'
 import { Caption, FabStack, HudChrome } from './components/hud/HudChrome'
 import { Toaster } from './components/Toast'
 import { pageLabel, setPagePreloader, useRoute, type PageId } from './lib/env'
@@ -17,6 +16,8 @@ import { loadedPage, preloadAll, preloadPage } from './pages/registry'
 setPagePreloader(preloadPage)
 const QuickSettings = lazy(() => import('./components/settings/QuickSettings'))
 const MoreSheet = lazy(() => import('./components/nav/MoreSheet'))
+// Only phones render the tab bar, so desktops never download it.
+const TabBar = lazy(() => import('./components/nav/TabBar').then((m) => ({ default: m.TabBar })))
 
 /** Renders a page, loading its chunk first if needed. */
 function PageHost({ page, sub }: { page: PageId; sub: string | null }) {
@@ -125,7 +126,11 @@ export default function App() {
       <p id="route-announcer" className="sr-only" aria-live="polite" aria-atomic="true" />
       <Caption page={page} />
       <FabStack quickOpen={quickOpen} onQuick={openQuick} showQuick={!phoneBar} />
-      {phoneBar && <TabBar moreOpen={moreOpen} onMore={openMore} />}
+      {phoneBar && (
+        <Suspense fallback={<nav className="tabbar" aria-label="Pages" />}>
+          <TabBar moreOpen={moreOpen} onMore={openMore} />
+        </Suspense>
+      )}
       {phoneBar && moreOpen && (
         <Suspense fallback={null}>
           <MoreSheet onClose={closeMore} />
