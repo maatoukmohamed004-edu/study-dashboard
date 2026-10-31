@@ -251,6 +251,12 @@
   outline: none;
 }
 
+/* The navigation layer moves focus to the page heading so screen readers start there. The
+   heading is not in the tab order, so it shows no focus ring (like <main> above). */
+.main h1[tabindex='-1']:focus {
+  outline: none;
+}
+
 /* ─── Glass ──────────────────────────────────────────────────────────────── */
 
 /* GlassLayer: sits behind its host's content. Its backdrop filter is set inline (refraction) or below (blur). */
