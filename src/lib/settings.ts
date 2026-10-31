@@ -55,6 +55,12 @@ export function coerce(def: SettingDef, raw: unknown): { value: unknown; ok: boo
       if (typeof raw === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) return { value: raw, ok: true }
       return { value: fallback, ok: false }
     }
+    case 'tabs': {
+      // Exactly `count` distinct, known pages; anything else falls back to the default list.
+      const allowed = def.options.map((o) => o.value)
+      const valid = Array.isArray(raw) && raw.length === def.count && new Set(raw).size === raw.length && raw.every((v) => typeof v === 'string' && allowed.includes(v))
+      return valid ? { value: [...(raw as string[])], ok: true } : { value: fallback, ok: false }
+    }
   }
 }
 

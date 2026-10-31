@@ -1374,6 +1374,40 @@
   font-weight: 700;
 }
 
+/* Tab picker: ordered slots, each a select plus move buttons */
+.tabs-ctl {
+  display: grid;
+  gap: var(--s2);
+}
+
+.tabs-slots {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tabs-slot {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.tabs-slot-label {
+  color: var(--ink-2);
+}
+
+.tabs-move {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs-move .btn-icon:disabled {
+  opacity: 0.35;
+}
+
 .checks {
   display: flex;
   flex-wrap: wrap;

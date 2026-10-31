@@ -50,3 +50,11 @@ export function Diamond() {
     </svg>
   )
 }
+
+export function MoveIcon({ dir }: { dir: 'up' | 'down' }) {
+  return (
+    <svg {...base} width={16} height={16}>
+      <path d={dir === 'up' ? 'M6 14l6-6 6 6' : 'M6 10l6 6 6-6'} strokeLinecap="square" />
+    </svg>
+  )
+}

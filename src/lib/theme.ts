@@ -254,6 +254,8 @@ export function applyTheme(s: Settings, r: Resolved) {
     '--ink-wash': mix(p.bg, p.ink, 0.18),
     '--accent-wash': rgba(p.accent, 0.07),
     '--accent-tint': mix(p.bg, p.accent, 0.16),
+    // The "Disc wash" page transition: an accent tint that hides the page without a bright flash.
+    '--vt-wash': mix(p.bg, p.accent, 0.24),
   })
   const modColours: [string, string][] = [...modules.map((m): [string, string] => [m.id, p.modules[m.id]]), ['none', p.ink2]]
   for (const [id, c] of modColours) {
@@ -278,6 +280,8 @@ export function applyTheme(s: Settings, r: Resolved) {
     grid: s['hud.grid'] ? 'on' : 'off',
     caption: s['hud.caption'] ? 'on' : 'off',
     bg: r.bg,
+    tabbar: s['nav.bottomBar'] ? 'on' : 'off',
+    tabLabels: s['nav.labels'] ? 'on' : 'off',
   }
   for (const [k, v] of Object.entries(data)) root.dataset[k] = v
   root.style.colorScheme = r.mode

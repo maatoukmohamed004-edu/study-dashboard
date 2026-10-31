@@ -20,6 +20,10 @@ export type GlassMode = 'off' | 'blur' | 'refraction' | 'liquid'
 export type GlassTarget = 'header' | 'cards' | 'buttons'
 export type OrbStyle = 'dotted' | 'liquid'
 export type MotionMode = 'auto' | 'reduced' | 'full'
+export type NavTransition = 'reveal' | 'wash' | 'fade' | 'none'
+export type NavOrigin = 'press' | 'center'
+/** Every routable page; the bottom tab bar shows four of them. */
+export type NavPage = 'today' | 'week' | 'plan' | 'resources' | 'absences' | 'check' | 'settings'
 export type { PresetId }
 
 export interface Settings {
@@ -58,6 +62,16 @@ export interface Settings {
   'hud.orbStyle': OrbStyle
   'motion.mode': MotionMode
   'motion.speed': number
+  'nav.transition': NavTransition
+  /** Milliseconds at animation speed 1×. */
+  'nav.duration': number
+  'nav.softness': number
+  'nav.origin': NavOrigin
+  'nav.bottomBar': boolean
+  'nav.labels': boolean
+  'nav.swipe': boolean
+  /** Exactly four pages, in tab order; the rest go to "More". */
+  'nav.tabs': NavPage[]
   'sim.enabled': boolean
   /** YYYY-MM-DD, '' = today */
   'sim.date': string
@@ -70,13 +84,14 @@ export type SettingKey = keyof Settings
 
 // ─── Sections ───────────────────────────────────────────────────────────────
 
-export type SectionId = 'appearance' | 'background' | 'glass' | 'hud' | 'motion' | 'diagnostics' | 'data'
+export type SectionId = 'appearance' | 'background' | 'glass' | 'hud' | 'navigation' | 'motion' | 'diagnostics' | 'data'
 
 export const sections: { id: SectionId; label: string; description: string }[] = [
   { id: 'appearance', label: 'Appearance', description: 'Preset, colours, type and shape.' },
   { id: 'background', label: 'Background', description: 'What sits behind the pages, and how hard the 3D works.' },
   { id: 'glass', label: 'Glass', description: 'Frosted and refracting surfaces on the header, cards and buttons.' },
   { id: 'hud', label: 'HUD & layout', description: 'Frame, brackets, grid, caption and the header orb.' },
+  { id: 'navigation', label: 'Navigation', description: 'The page-change animation, and the tab bar on phones.' },
   { id: 'motion', label: 'Motion', description: 'How much moves, and how fast.' },
   { id: 'diagnostics', label: 'Simulation & diagnostics', description: 'Preview another date and time, or count frames.' },
   { id: 'data', label: 'Data', description: 'Back up, restore or reset your settings and progress.' },
@@ -118,9 +133,24 @@ export type SettingDef<K extends SettingKey = SettingKey> = Common<K> &
     | { control: 'color'; swatches: string[]; nullLabel: string }
     | { control: 'checkboxes'; options: Option[] }
     | { control: 'date' | 'time' }
+    /** Pick exactly `count` distinct options, in order (each slot is a select; choosing a used option swaps). */
+    | { control: 'tabs'; options: Option[]; count: number; slotLabel: string }
   )
 
 const ON_WEBGL = ['animated', 'dither'] as const
+const DISC = ['reveal', 'wash'] as const
+
+/** All pages, in their canonical order (used for the tab picker and the "More" sheet). */
+export const NAV_PAGES: { value: NavPage; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'Week' },
+  { value: 'plan', label: 'Plan' },
+  { value: 'resources', label: 'Resources' },
+  { value: 'absences', label: 'Absences' },
+  { value: 'check', label: 'Sunday check' },
+  { value: 'settings', label: 'Settings' },
+]
+export const DEFAULT_TABS: NavPage[] = ['today', 'week', 'plan', 'absences']
 
 // ─── The schema ─────────────────────────────────────────────────────────────
 
@@ -485,6 +515,98 @@ export const schema = {
     unit: '×',
     default: 1,
     dependsOn: { key: 'motion.mode', is: ['auto', 'full'] },
+  },
+
+  // Navigation
+  'nav.transition': {
+    key: 'nav.transition',
+    section: 'navigation',
+    label: 'Page transition',
+    description: 'What happens when you change page.',
+    control: 'select',
+    options: [
+      { value: 'reveal', label: 'Disc reveal', description: 'The new page opens inside a soft disc that grows from where you pressed.' },
+      { value: 'wash', label: 'Disc wash', description: 'An accent-tinted disc covers the page, the page changes underneath, then the disc fades.' },
+      { value: 'fade', label: 'Crossfade' },
+      { value: 'none', label: 'None', description: 'Change instantly.' },
+    ],
+    default: 'reveal',
+  },
+  'nav.duration': {
+    key: 'nav.duration',
+    section: 'navigation',
+    label: 'Duration',
+    description: 'At animation speed 1×. Reduced motion always uses a short crossfade.',
+    control: 'range',
+    min: 300,
+    max: 1200,
+    step: 50,
+    unit: 'ms',
+    default: 650,
+    dependsOn: { key: 'nav.transition', is: ['reveal', 'wash', 'fade'] },
+  },
+  'nav.softness': {
+    key: 'nav.softness',
+    section: 'navigation',
+    label: 'Edge softness',
+    description: '0% is a hard circle; higher feathers the edge of the disc.',
+    control: 'range',
+    min: 0,
+    max: 100,
+    step: 5,
+    unit: '%',
+    default: 35,
+    dependsOn: { key: 'nav.transition', is: DISC },
+  },
+  'nav.origin': {
+    key: 'nav.origin',
+    section: 'navigation',
+    label: 'Disc starts at',
+    control: 'segmented',
+    options: [
+      { value: 'press', label: 'Press point' },
+      { value: 'center', label: 'Screen centre' },
+    ],
+    default: 'press',
+    dependsOn: { key: 'nav.transition', is: DISC },
+  },
+  'nav.bottomBar': {
+    key: 'nav.bottomBar',
+    section: 'navigation',
+    label: 'Tab bar on phones',
+    description: 'Navigation at the bottom of the screen, within thumb reach. Off brings back the scrolling top bar.',
+    control: 'toggle',
+    default: true,
+  },
+  'nav.labels': {
+    key: 'nav.labels',
+    section: 'navigation',
+    label: 'Tab labels',
+    description: 'Words under the tab icons. Screen readers hear them either way.',
+    control: 'toggle',
+    default: true,
+    dependsOn: { key: 'nav.bottomBar', is: [true] },
+  },
+  'nav.swipe': {
+    key: 'nav.swipe',
+    section: 'navigation',
+    label: 'Swipe between pages',
+    description: 'Swipe left or right to move between tabs. Ignored inside areas that scroll sideways.',
+    control: 'toggle',
+    default: false,
+    dependsOn: { key: 'nav.bottomBar', is: [true] },
+  },
+  'nav.tabs': {
+    key: 'nav.tabs',
+    section: 'navigation',
+    label: 'Tabs',
+    description: 'The four pages in the tab bar, left to right. Everything else goes to "More".',
+    control: 'tabs',
+    options: NAV_PAGES,
+    count: 4,
+    slotLabel: 'Tab',
+    default: DEFAULT_TABS,
+    dependsOn: { key: 'nav.bottomBar', is: [true] },
   },
 
   // Simulation & diagnostics

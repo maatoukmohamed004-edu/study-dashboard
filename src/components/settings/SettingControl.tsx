@@ -6,6 +6,7 @@ import { getSettings, replaceSettings, setSetting, useSettings } from '../../lib
 import { meets, REQ_TEXT } from './helpers'
 import { showToast } from '../../lib/toast'
 import { Segmented } from '../ui/Segmented'
+import { MoveIcon } from '../icons'
 
 /** One row of the Settings UI, generated from its schema entry. */
 export function SettingControl({ k, compact = false }: { k: SettingKey; compact?: boolean }) {
@@ -109,6 +110,9 @@ export function SettingControl({ k, compact = false }: { k: SettingKey; compact?
       )
       break
     }
+    case 'tabs':
+      control = <TabsControl def={def} value={value as string[]} onChange={write} labelId={labelId} descId={descId} />
+      break
     case 'date':
     case 'time':
       control = (
@@ -239,6 +243,77 @@ function ColorControl({
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Exactly `count` distinct options, in order. Each slot is a native select; picking an option that
+ * another slot already uses swaps the two, so the value can never have gaps or duplicates.
+ */
+function TabsControl({
+  def,
+  value,
+  onChange,
+  labelId,
+  descId,
+}: {
+  def: Extract<SettingDef, { control: 'tabs' }>
+  value: string[]
+  onChange: (v: string[]) => void
+  labelId: string
+  descId?: string
+}) {
+  const id = useId()
+  const name = (v: string) => def.options.find((o) => o.value === v)?.label ?? v
+  const rest = def.options.filter((o) => !value.includes(o.value)).map((o) => o.label)
+
+  function pick(slot: number, next: string) {
+    const out = [...value]
+    const other = out.indexOf(next)
+    if (other > -1) out[other] = out[slot]
+    out[slot] = next
+    onChange(out)
+  }
+
+  function move(slot: number, by: -1 | 1) {
+    const to = slot + by
+    if (to < 0 || to >= value.length) return
+    const out = [...value]
+    ;[out[slot], out[to]] = [out[to], out[slot]]
+    onChange(out)
+  }
+
+  return (
+    <div className="tabs-ctl" role="group" aria-labelledby={labelId} aria-describedby={descId}>
+      <ol className="tabs-slots">
+        {value.map((v, i) => (
+          <li key={i} className="tabs-slot">
+            <label className="label tabs-slot-label" htmlFor={`${id}-${i}`}>
+              {def.slotLabel} {i + 1}
+            </label>
+            <select id={`${id}-${i}`} className="input" value={v} onChange={(e) => pick(i, e.target.value)}>
+              {def.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <span className="tabs-move">
+              <button type="button" className="btn btn-icon" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${name(v)} earlier`}>
+                <MoveIcon dir="up" />
+              </button>
+              <button type="button" className="btn btn-icon" disabled={i === value.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${name(v)} later`}>
+                <MoveIcon dir="down" />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="setting-desc" aria-live="polite">
+        In “More”: {rest.join(', ') || 'nothing'}.
+      </p>
+      {!value.includes('absences') && <p className="setting-note">Absences is now inside “More”, two taps away.</p>}
     </div>
   )
 }
