@@ -1712,4 +1712,17 @@
     min-width: 0;
     overflow-x: auto;
   }
+
+  /* Narrow charts are steeper, so the line can run through the last-value label: give the label
+     a halo in the card's colour (the page colour under glass cards). */
+  .trend-last {
+    paint-order: stroke;
+    stroke: var(--raised);
+    stroke-width: 8px;
+    stroke-linejoin: round;
+  }
+
+  [data-glass-cards='on'] .trend-last {
+    stroke: var(--bg);
+  }
 }
