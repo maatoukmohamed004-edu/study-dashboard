@@ -71,7 +71,10 @@ async function measure(page, W, H) {
           return !!t && (t === el || el.contains(t) || t.contains(el));
         };
         const cx = b.left + b.width / 2;
-        if (!visibleAt(cx, b.top + 1) || !visibleAt(cx, b.top + b.height / 2) || !visibleAt(cx, b.bottom - 1)) continue;
+        const cy = b.top + b.height / 2;
+        if (!visibleAt(cx, b.top + 1) || !visibleAt(cx, cy) || !visibleAt(cx, b.bottom - 1)) continue;
+        // Partly covered at either end (e.g. by a floating button): not measurable at this scroll position.
+        if (!visibleAt(b.left + 1, cy) || !visibleAt(b.right - 1, cy)) continue;
         let c = parse(el.closest('svg') ? cs.fill : cs.color);
         if ((c[3] ?? 1) === 0 && cs.webkitTextStrokeWidth && parseFloat(cs.webkitTextStrokeWidth) > 0) c = parse(cs.webkitTextStrokeColor);
         out.push({ t: t.slice(0, 36), x: b.left, y: b.top, w: b.width, h: b.height, c, fs: parseFloat(cs.fontSize), fw: +cs.fontWeight });
