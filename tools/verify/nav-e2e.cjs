@@ -199,6 +199,20 @@ async function swipe(cdp, from, to) {
     ok('Leaving the field brings the bar back', (await page.evaluate(() => getComputedStyle(document.querySelector('.tabbar')).display)) === 'block');
   } else ok('Absences page has a text field to test the keyboard rule', false);
 
+  // No page may be wider than the screen: a wider page widens the layout viewport and pushes
+  // the fixed bar (and "More") past the edge.
+  const widths = [];
+  for (const pg of ['today', 'week', 'plan', 'resources', 'absences', 'check', 'settings']) {
+    await page.evaluate((h) => { location.hash = h; }, `#/${pg}`);
+    await settle(page, 1500);
+    widths.push(await page.evaluate((pg) => {
+      const m = document.querySelector('.tab-more').getBoundingClientRect();
+      return { pg, w: document.documentElement.scrollWidth, more: Math.round(m.right) };
+    }, pg));
+  }
+  ok('Every page fits a 390 px screen', widths.every((w) => w.w <= 390), widths.map((w) => `${w.pg}:${w.w}`).join(' '));
+  ok('"More" is on screen on every page', widths.every((w) => w.more <= 390), widths.map((w) => `${w.pg}:${w.more}`).join(' '));
+
   // Swipe: off by default
   await page.tap('.tab[href="#/today"]');
   await settle(page);

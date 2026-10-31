@@ -17,6 +17,9 @@
   :root[data-tabbar='on'] {
     --bar-space: calc(var(--tabbar-h) + var(--safe-b));
     --frame-bottom: calc(var(--bar-space) + var(--caption-h));
+    /* Safety net: content wider than the screen must never widen the page (and with it the
+       fixed bar, pushing "More" off-screen). clip, unlike hidden, keeps the sticky header working. */
+    overflow-x: clip;
   }
 
   :root[data-tabbar='on'][data-tab-labels='off'] {

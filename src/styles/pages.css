@@ -1685,3 +1685,31 @@
   background: var(--bg);
   box-shadow: 0 0 0 2px var(--bg);
 }
+
+/* Phones: nothing on the Sunday check may be wider than the screen. A wider page makes mobile
+   browsers widen the layout viewport, which stretches the fixed tab bar past the screen edge.
+   Charts follow their column (the SVG's width attribute no longer props the grid open), and the
+   history table scrolls sideways inside its card. */
+@media (max-width: 640px) {
+  .check-layout,
+  .check-charts,
+  .chart-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .check-form,
+  .chart-card,
+  .trend {
+    min-width: 0;
+  }
+
+  .trend svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  .history {
+    min-width: 0;
+    overflow-x: auto;
+  }
+}
