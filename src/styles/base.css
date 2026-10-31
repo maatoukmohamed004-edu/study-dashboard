@@ -1,0 +1,255 @@
+/*
+ * Tokens. Colours, radius, density, glass and motion values are set on :root by
+ * src/lib/theme.ts from your settings; the values below are fallbacks for the
+ * first paint (Mono Noir).
+ */
+:root {
+  color-scheme: dark;
+
+  --bg: #0a0a0a;
+  --raised: #151514;
+  --desk: #121211;
+  --ink: #edede8;
+  --ink-2: #a7a7a1;
+  --line: rgba(237, 237, 232, 0.16);
+  --line-strong: rgba(237, 237, 232, 0.36);
+  --accent: #f2f0ea;
+  --accent-ink: #0a0a0a;
+  --ok: #8fd6b0;
+  --warn: #e8b04b;
+  --alarm: #ff8080;
+  --focus: #ffd166;
+
+  /* Type: three roles plus body */
+  --font-ui: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
+  --font-title: 'Unbounded Variable', 'Arial Black', sans-serif;
+  --font-display: 'Sofia Sans Extra Condensed Variable', 'Arial Narrow', sans-serif;
+  --display-weight: 300;
+  --display-tracking: 0;
+
+  --t-label: 0.6875rem; /* 11px mono labels */
+  --t-xs: 0.8125rem;
+  --t-sm: 0.9375rem;
+  --t-md: 1rem;
+  --t-lg: 1.1875rem;
+  --t-xl: 1.5rem;
+
+  /* Space scales with density (1 comfortable, 0.72 compact) */
+  --density: 1;
+  --s1: calc(4px * var(--density));
+  --s2: calc(8px * var(--density));
+  --s3: calc(12px * var(--density));
+  --s4: calc(16px * var(--density));
+  --s5: calc(24px * var(--density));
+  --s6: calc(32px * var(--density));
+  --s7: calc(48px * var(--density));
+  --control-h: calc(32px + 8px * var(--density));
+
+  --r-sm: 0px;
+  --r-md: 0px;
+  --r-lg: 0px;
+
+  /* HUD geometry */
+  --frame: 18px;
+  --frame-bottom: 44px;
+  --gutter: clamp(16px, 3vw, 40px);
+  --content: 1240px;
+
+  --motion-k: 1;
+  --dur: calc(160ms * var(--motion-k));
+}
+
+@media (max-width: 640px) {
+  :root {
+    --frame: 8px;
+    --frame-bottom: 34px;
+    --gutter: 14px;
+  }
+}
+
+[data-frame='off'] {
+  --frame: 0px;
+  --frame-bottom: 0px;
+}
+
+[data-frame='off'][data-caption='on'] {
+  --frame-bottom: 34px;
+}
+
+/* ─── Reset ──────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: calc(100% * var(--text-scale, 1));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--desk);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--t-md);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img,
+svg {
+  display: block;
+}
+
+a {
+  color: var(--ink);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  color: var(--accent);
+}
+
+.ext-icon {
+  display: inline-block;
+  margin-left: 0.2em;
+  vertical-align: 0.05em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: fixed;
+  left: 16px;
+  top: -100px;
+  z-index: 100;
+  padding: 10px 16px;
+  border: 0;
+  background: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
+/* ─── Type roles ─────────────────────────────────────────────────────────── */
+
+/* Small mono labels: tags, coordinates, captions */
+.label {
+  font-family: var(--font-mono);
+  font-size: var(--t-label);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+}
+
+[data-mono-case='upper'] .label {
+  text-transform: uppercase;
+}
+
+/* Ultra-condensed light display: big numbers and headings */
+.display {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  line-height: 0.88;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Heavy extended: one huge title per page */
+.giant {
+  font-family: var(--font-title);
+  font-weight: 900;
+  line-height: 0.82;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.muted {
+  color: var(--ink-2);
+}
+
+.small {
+  font-size: var(--t-sm);
+}
+
+.xsmall {
+  font-size: var(--t-xs);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reduced motion: from your setting, or the OS when Motion is on Auto */
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
