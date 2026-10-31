@@ -495,10 +495,19 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
 - All tests run with simulated time Wed 2026-11-18 14:40 and the progress seed in
   `tools/verify/seed.json`.
 
-**Last full verification (2026-10-31, final phase-2 build):**
+**Last full verification (2026-11-01, branch `feat/mobile-nav-transition`):**
 - lint and typecheck clean;
-- 61/61 settings checks;
-- 78/78 screenshots with 0 text runs below AA (17,890 measured) and 0 console errors.
+- 61/61 settings checks and 57/57 navigation checks;
+- contrast: 42 shots (Mono Noir and Light, every page at 1440 px, at 390 px, and at 390 px
+  with "More" open) with 0 console errors. The only flags were the phone chart label, fixed
+  with a halo, then re-measured at 0.
+- transition frames: the disc starts exactly at the press point (desktop and phone), the
+  fallback/wash overlays fully cover the page mid-way, and reduced motion is a 160 ms crossfade.
+- desktop vs `main`, 84 deterministic shots: identical except Settings (the new Navigation
+  section) and ≤ 6/255 glass shimmer in a few header strips. With transitions off, 24/24 were
+  identical to `main`, so that shimmer is post-View-Transition rendering residue (see trap 20).
+
+Earlier, at the end of phase 2: 78/78 matrix shots, 17,890 text runs, 0 below AA.
 
 ## 12. Traps already hit (don't rediscover them)
 
@@ -550,10 +559,12 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
     happens a frame or more later). Wait for the condition.
 19. **Swipe timing:** measure with event `timeStamp`, not `performance.now()` in the handler.
     A busy main thread otherwise turns flicks into pans (it also broke CDP-driven tests).
-20. **Glass rendering noise:** refraction/blur over the same page can differ by a few levels
-    between runs (max Δ ≈ 18 of 765 summed RGB in the header strip). `desktop-diff.cjs`
-    prints max Δ; compare against a second run of the same build before calling something a
-    change.
+20. **Glass shimmer after a View Transition:** on pages reached by an in-app navigation, the
+    refracting header glass can differ from `main` by up to 18 of 765 summed RGB (≤ 6/255 per
+    channel). It varies run to run, and it disappears with `nav.transition: none` (24/24
+    identical to `main`), so it's leftover rendering state after the transition, not a style
+    change. `main` against itself is 24/24 identical. `desktop-diff.cjs` prints the max Δ, and
+    `EXTRA='{"nav.transition":"none"}'` isolates this.
 21. **On phones, anything wider than the screen widens the whole page.** Mobile browsers then
     widen the layout viewport, which stretches the fixed tab bar past the edge (this hid "More"
     on the Sunday check).
