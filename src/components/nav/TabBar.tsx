@@ -120,7 +120,8 @@ function useSwipe(enabled: boolean, tabs: PageId[]) {
     const order = swipeOrder(key.split(',') as PageId[])
     let start: { x: number; y: number; t: number } | null = null
     const onStart = (e: TouchEvent) => {
-      start = e.touches.length === 1 && !swipeBlocked(e.target as Element) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now() } : null
+      // Event timestamps, not the time the handler runs: a busy main thread must not turn a flick into a pan.
+      start = e.touches.length === 1 && !swipeBlocked(e.target as Element) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: e.timeStamp } : null
     }
     const onEnd = (e: TouchEvent) => {
       const s0 = start
@@ -129,7 +130,7 @@ function useSwipe(enabled: boolean, tabs: PageId[]) {
       const t = e.changedTouches[0]
       const dx = t.clientX - s0.x
       const dy = t.clientY - s0.y
-      if (Math.abs(dx) < 70 || Math.abs(dx) < 1.8 * Math.abs(dy) || performance.now() - s0.t > 600) return
+      if (Math.abs(dx) < 70 || Math.abs(dx) < 1.8 * Math.abs(dy) || e.timeStamp - s0.t > 600) return
       const i = order.indexOf(getRoute().page)
       const next = i < 0 ? undefined : order[i + (dx < 0 ? 1 : -1)]
       if (next) navigate(`#/${next}`, { origin: { x: t.clientX, y: t.clientY } })
