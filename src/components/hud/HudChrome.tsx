@@ -52,7 +52,7 @@ export function Caption({ page }: { page: PageId }) {
 }
 
 /** Square floating buttons, bottom-right: back to top, and quick settings. */
-export function FabStack({ quickOpen, onQuick }: { quickOpen: boolean; onQuick: () => void }) {
+export function FabStack({ quickOpen, onQuick, showQuick = true }: { quickOpen: boolean; onQuick: (opener: HTMLElement) => void; showQuick?: boolean }) {
   const r = useResolved()
   const [scrolled, setScrolled] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -82,10 +82,12 @@ export function FabStack({ quickOpen, onQuick }: { quickOpen: boolean; onQuick: 
           <ArrowUpIcon />
         </button>
       )}
-      <button type="button" className="square-btn" aria-label="Quick settings" aria-expanded={quickOpen} aria-controls="quick-settings" onClick={onQuick}>
-        <GlassLayer target="buttons" bezel={8} strengthScale={0.6} />
-        <SlidersIcon />
-      </button>
+      {showQuick && (
+        <button type="button" className="square-btn" aria-label="Quick settings" aria-expanded={quickOpen} aria-controls="quick-settings" onClick={(e) => onQuick(e.currentTarget)}>
+          <GlassLayer target="buttons" bezel={8} strengthScale={0.6} />
+          <SlidersIcon />
+        </button>
+      )}
     </div>
   )
 }

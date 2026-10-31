@@ -1,0 +1,250 @@
+/* ─── Phone tab bar and "More" sheet ─────────────────────────────────────────
+   Phones only (≤ 640 px) with Settings → Navigation → Tab bar on phones (<html data-tabbar="on">).
+   From the bottom of the screen up: the home-indicator inset, the tab bar, a strip for the
+   caption, then the frame's bottom line. Everything keyed to --frame-bottom (floating buttons,
+   toasts, the quick drawer, the page's bottom padding) moves up with it. */
+
+:root {
+  --tabbar-h: 64px;
+  --caption-h: 30px;
+}
+
+.tabbar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  :root[data-tabbar='on'] {
+    --bar-space: calc(var(--tabbar-h) + var(--safe-b));
+    --frame-bottom: calc(var(--bar-space) + var(--caption-h));
+  }
+
+  :root[data-tabbar='on'][data-tab-labels='off'] {
+    --tabbar-h: 56px;
+  }
+
+  :root[data-tabbar='on'][data-caption='off'] {
+    --frame-bottom: calc(var(--bar-space) + 8px);
+  }
+
+  :root[data-tabbar='on'][data-frame='off'] {
+    --frame-bottom: var(--bar-space);
+  }
+
+  :root[data-tabbar='on'][data-frame='off'][data-caption='on'] {
+    --frame-bottom: calc(var(--bar-space) + var(--caption-h));
+  }
+
+  /* On-screen keyboard: the bar, caption and floating button step aside (never above the keys). */
+  :root:root[data-tabbar='on'][data-kb='open'] {
+    --frame-bottom: calc(8px + var(--safe-b));
+  }
+
+  :root[data-tabbar='on'][data-kb='open'] .tabbar,
+  :root[data-tabbar='on'][data-kb='open'] .hud-caption,
+  :root[data-tabbar='on'][data-kb='open'] .fab-stack {
+    display: none;
+  }
+
+  /* The bar */
+  :root[data-tabbar='on'] .tabbar {
+    position: fixed;
+    z-index: 46;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: block;
+    height: var(--bar-space);
+    padding: 0 var(--safe-r) var(--safe-b) var(--safe-l);
+    background: var(--bg);
+    border-top: 1px solid var(--line-strong);
+  }
+
+  :root[data-tabbar='on'][data-glass-header='on'] .tabbar {
+    background: transparent;
+  }
+
+  .tabbar-list {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    height: var(--tabbar-h);
+    margin: 0;
+    padding: 0 4px;
+    list-style: none;
+  }
+
+  .tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    height: 100%;
+    min-height: 48px;
+    padding: 4px 2px 0;
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .tab svg {
+    flex: none;
+  }
+
+  .tab-label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  [data-mono-case='upper'] .tab-label {
+    text-transform: uppercase;
+  }
+
+  .tab:hover,
+  .tab[aria-current='page'],
+  .tab[data-active='true'] {
+    color: var(--ink);
+  }
+
+  .tab[aria-current='page'] .tab-label,
+  .tab[data-active='true'] .tab-label {
+    font-weight: 700;
+  }
+
+  /* Active indicator: a bar at the top of the tab, plus the bold label (never colour alone). */
+  .tab-mark {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 28px;
+    height: 3px;
+    margin-left: -14px;
+    background: var(--accent);
+    opacity: 0;
+  }
+
+  .tab[aria-current='page'] .tab-mark,
+  .tab[data-active='true'] .tab-mark {
+    opacity: 1;
+  }
+
+  .tab:focus-visible {
+    outline-offset: -4px;
+  }
+
+  [data-tab-labels='off'] .tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Caption and FPS counter sit in the strip just above the bar. */
+  :root[data-tabbar='on'] .hud-caption,
+  :root[data-tabbar='on'] .fps {
+    bottom: var(--bar-space);
+    height: var(--caption-h);
+  }
+
+  /* Slim top bar: wordmark and orb on the left, the Quick settings gear on the right. */
+  :root[data-tabbar='on'] .tb-gear {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* ─── "More" sheet ───────────────────────────────────────────────────────── */
+.sheet-scrim {
+  z-index: 61;
+}
+
+.sheet {
+  position: fixed;
+  z-index: 62;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 80vh;
+  max-height: 80dvh;
+  overflow: auto;
+  padding: 4px calc(8px + var(--safe-r)) calc(12px + var(--safe-b)) calc(8px + var(--safe-l));
+  background: var(--bg);
+  border-top: 1px solid var(--line-strong);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.4);
+  touch-action: none;
+  animation: sheet-in calc(var(--dur) * 1.8) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.sheet-handle {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 6px auto 2px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 8px 14px;
+}
+
+.sheet-close {
+  width: 48px;
+  height: 48px;
+}
+
+.sheet-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sheet-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 0 14px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-size: var(--t-md);
+  text-decoration: none;
+}
+
+.sheet-link:hover {
+  background: var(--raised);
+}
+
+.sheet-link[aria-current='page'] {
+  box-shadow: inset 3px 0 0 var(--accent);
+  font-weight: 700;
+}
+
+.sheet-link-label {
+  flex: 1;
+}

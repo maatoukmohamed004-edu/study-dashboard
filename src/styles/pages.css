@@ -1271,7 +1271,7 @@
 
 .settings-nav {
   position: sticky;
-  top: calc(var(--frame) + 72px);
+  top: calc(var(--frame-t) + 72px);
 }
 
 .settings-nav ul {

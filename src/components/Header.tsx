@@ -10,8 +10,21 @@ import { GlassLayer } from './glass/GlassLayer'
 import { GearIcon } from './icons'
 import { ProgressOrb } from './ProgressOrb'
 
-/** Three columns: wordmark (with the orb) · monogram · navigation and the settings gear. */
-export function Header({ page }: { page: PageId }) {
+/**
+ * Three columns: wordmark (with the orb) · monogram · navigation and the settings gear.
+ * `compact` (phones with the tab bar): no navigation here, and the gear opens Quick settings.
+ */
+export function Header({
+  page,
+  compact = false,
+  quickOpen = false,
+  onQuick,
+}: {
+  page: PageId
+  compact?: boolean
+  quickOpen?: boolean
+  onQuick?: (opener: HTMLElement) => void
+}) {
   const today = useToday()
   const stats = useThisWeekStats(today)
   const current = weekFor(today)
@@ -56,7 +69,7 @@ export function Header({ page }: { page: PageId }) {
       nav.removeEventListener('scroll', update)
       document.fonts?.removeEventListener('loadingdone', later)
     }
-  }, [page])
+  }, [page, compact])
 
   return (
     // In liquid mode, "glass-container" makes html2canvas leave the header out of its page snapshot.
@@ -88,6 +101,7 @@ export function Header({ page }: { page: PageId }) {
         </a>
 
         <div className="tb-right">
+          {!compact && (
           <nav className="tb-nav" aria-label="Pages" ref={navRef}>
             <ul>
               {PAGES.map((p) => (
@@ -106,10 +120,25 @@ export function Header({ page }: { page: PageId }) {
               ))}
             </ul>
           </nav>
+          )}
+          {compact ? (
+            <button
+              type="button"
+              className="square-btn tb-gear"
+              aria-label="Quick settings"
+              aria-expanded={quickOpen}
+              aria-controls={quickOpen ? 'quick-settings' : undefined}
+              onClick={(e) => onQuick?.(e.currentTarget)}
+            >
+              <GlassLayer target="buttons" bezel={8} strengthScale={0.6} />
+              <GearIcon />
+            </button>
+          ) : (
           <a className="square-btn tb-gear" href="#/settings" aria-label="Settings" aria-current={page === 'settings' ? 'page' : undefined}>
             <GlassLayer target="buttons" bezel={8} strengthScale={0.6} />
             <GearIcon />
           </a>
+          )}
         </div>
       </div>
       <SimBanner />

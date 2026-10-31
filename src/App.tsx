@@ -2,17 +2,21 @@ import { createElement, lazy, Suspense, useCallback, useEffect, useReducer, useR
 import { Background } from './components/Background'
 import { FpsMeter } from './components/FpsMeter'
 import { Header } from './components/Header'
+import type { SheetClose } from './components/nav/MoreSheet'
+import { TabBar } from './components/nav/TabBar'
 import { Caption, FabStack, HudChrome } from './components/hud/HudChrome'
 import { Toaster } from './components/Toast'
 import { pageLabel, setPagePreloader, useRoute, type PageId } from './lib/env'
 import { useSetting, useSettingsProblem } from './lib/settings'
 import { useStorageProblem } from './lib/store'
+import { useMediaState } from './lib/capabilities'
 import { loadedPage, preloadAll, preloadPage } from './pages/registry'
 
 // Today ships in the main bundle; the other pages are chunks that load when the browser is idle
 // (or on first visit), which keeps the main bundle near 100 kB gzipped.
 setPagePreloader(preloadPage)
 const QuickSettings = lazy(() => import('./components/settings/QuickSettings'))
+const MoreSheet = lazy(() => import('./components/nav/MoreSheet'))
 
 /** Renders a page, loading its chunk first if needed. */
 function PageHost({ page, sub }: { page: PageId; sub: string | null }) {
@@ -43,6 +47,18 @@ export default function App() {
   const fps = useSetting('diag.fps')
   const [quickOpen, setQuickOpen] = useState(false)
   const quickButton = useRef<HTMLElement | null>(null)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreButton = useRef<HTMLElement | null>(null)
+  // Phones with the tab bar: navigation at the bottom, and the top gear opens Quick settings.
+  const media = useMediaState()
+  const bottomBar = useSetting('nav.bottomBar')
+  const phoneBar = media.phone && bottomBar
+  // Leaving the phone layout (rotation, setting turned off) closes the sheet.
+  const [wasPhoneBar, setWasPhoneBar] = useState(phoneBar)
+  if (wasPhoneBar !== phoneBar) {
+    setWasPhoneBar(phoneBar)
+    if (!phoneBar) setMoreOpen(false)
+  }
 
   useEffect(() => {
     document.title = `${pageLabel(page)} – Study dashboard`
@@ -59,8 +75,9 @@ export default function App() {
     return () => window.clearTimeout(id)
   }, [])
 
-  const openQuick = useCallback(() => {
-    quickButton.current = document.activeElement as HTMLElement
+  // The opener is passed in: on touch devices a tapped button does not always take focus.
+  const openQuick = useCallback((opener?: HTMLElement) => {
+    quickButton.current = opener ?? (document.activeElement as HTMLElement)
     setQuickOpen((o) => !o)
   }, [])
 
@@ -68,6 +85,17 @@ export default function App() {
     setQuickOpen(false)
     // Return focus to the button that opened the drawer.
     requestAnimationFrame(() => quickButton.current?.focus())
+  }, [])
+
+  const openMore = useCallback((opener: HTMLElement) => {
+    moreButton.current = opener
+    setMoreOpen((o) => !o)
+  }, [])
+
+  const closeMore = useCallback((how: SheetClose) => {
+    setMoreOpen(false)
+    // Dismissed: back to the "More" button. Navigating: the new page's heading takes focus.
+    if (how === 'dismiss') requestAnimationFrame(() => moreButton.current?.focus())
   }, [])
 
   return (
@@ -78,7 +106,7 @@ export default function App() {
       <Background />
       <HudChrome />
       <div className="shell">
-        <Header page={page} />
+        <Header page={page} compact={phoneBar} quickOpen={quickOpen} onQuick={openQuick} />
         <main id="main" className="main" tabIndex={-1}>
           {storageProblem && (
             <p className="notice" role="alert">
@@ -96,7 +124,13 @@ export default function App() {
       </div>
       <p id="route-announcer" className="sr-only" aria-live="polite" aria-atomic="true" />
       <Caption page={page} />
-      <FabStack quickOpen={quickOpen} onQuick={openQuick} />
+      <FabStack quickOpen={quickOpen} onQuick={openQuick} showQuick={!phoneBar} />
+      {phoneBar && <TabBar moreOpen={moreOpen} onMore={openMore} />}
+      {phoneBar && moreOpen && (
+        <Suspense fallback={null}>
+          <MoreSheet onClose={closeMore} />
+        </Suspense>
+      )}
       {quickOpen && (
         <Suspense fallback={null}>
           <QuickSettings onClose={closeQuick} />

@@ -50,9 +50,17 @@
   --r-md: 0px;
   --r-lg: 0px;
 
-  /* HUD geometry */
+  /* HUD geometry. Safe-area insets (notches, home indicator; index.html sets viewport-fit=cover)
+     are 0 on desktops, so the frame there is exactly --frame / --frame-bottom. */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
   --frame: 18px;
-  --frame-bottom: 44px;
+  --frame-t: calc(var(--frame) + var(--safe-t));
+  --frame-r: calc(var(--frame) + var(--safe-r));
+  --frame-l: calc(var(--frame) + var(--safe-l));
+  --frame-bottom: calc(44px + var(--safe-b));
   --gutter: clamp(16px, 3vw, 40px);
   --content: 1240px;
 
@@ -63,18 +71,18 @@
 @media (max-width: 640px) {
   :root {
     --frame: 8px;
-    --frame-bottom: 34px;
+    --frame-bottom: calc(34px + var(--safe-b));
     --gutter: 14px;
   }
 }
 
 [data-frame='off'] {
   --frame: 0px;
-  --frame-bottom: 0px;
+  --frame-bottom: var(--safe-b);
 }
 
 [data-frame='off'][data-caption='on'] {
-  --frame-bottom: 34px;
+  --frame-bottom: calc(34px + var(--safe-b));
 }
 
 /* ─── Reset ──────────────────────────────────────────────────────────────── */

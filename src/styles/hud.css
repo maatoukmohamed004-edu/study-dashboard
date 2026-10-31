@@ -85,7 +85,7 @@
   top: 0;
   left: 0;
   right: 0;
-  height: var(--frame);
+  height: var(--frame-t);
 }
 
 .hud-mat-bottom {
@@ -99,23 +99,23 @@
   top: 0;
   bottom: 0;
   left: 0;
-  width: var(--frame);
+  width: var(--frame-l);
 }
 
 .hud-mat-right {
   top: 0;
   bottom: 0;
   right: 0;
-  width: var(--frame);
+  width: var(--frame-r);
 }
 
 /* Double hairline */
 .hud-frame {
   position: fixed;
   z-index: 31;
-  top: var(--frame);
-  left: var(--frame);
-  right: var(--frame);
+  top: var(--frame-t);
+  left: var(--frame-l);
+  right: var(--frame-r);
   bottom: var(--frame-bottom);
   border: 1px solid var(--line-strong);
   pointer-events: none;
@@ -146,29 +146,29 @@
 }
 
 .hud-corner.tl {
-  top: 5px;
-  left: 5px;
+  top: calc(5px + var(--safe-t));
+  left: calc(5px + var(--safe-l));
   border-top-width: 1px;
   border-left-width: 1px;
 }
 
 .hud-corner.tr {
-  top: 5px;
-  right: 5px;
+  top: calc(5px + var(--safe-t));
+  right: calc(5px + var(--safe-r));
   border-top-width: 1px;
   border-right-width: 1px;
 }
 
 .hud-corner.bl {
-  bottom: 5px;
-  left: 5px;
+  bottom: calc(5px + var(--safe-b));
+  left: calc(5px + var(--safe-l));
   border-bottom-width: 1px;
   border-left-width: 1px;
 }
 
 .hud-corner.br {
-  bottom: 5px;
-  right: 5px;
+  bottom: calc(5px + var(--safe-b));
+  right: calc(5px + var(--safe-r));
   border-bottom-width: 1px;
   border-right-width: 1px;
 }
@@ -181,10 +181,10 @@
 .hud-caption {
   position: fixed;
   z-index: 35;
-  left: calc(var(--frame) + 14px);
+  left: calc(var(--frame-l) + 14px);
   right: 140px;
-  bottom: 0;
-  height: var(--frame-bottom);
+  bottom: var(--safe-b);
+  height: calc(var(--frame-bottom) - var(--safe-b));
   display: flex;
   align-items: center;
   margin: 0;
@@ -211,9 +211,9 @@
 .fps {
   position: fixed;
   z-index: 36;
-  right: calc(var(--frame) + 14px);
-  bottom: 0;
-  height: var(--frame-bottom);
+  right: calc(var(--frame-r) + 14px);
+  bottom: var(--safe-b);
+  height: calc(var(--frame-bottom) - var(--safe-b));
   display: flex;
   align-items: center;
   color: var(--ink);
@@ -233,12 +233,12 @@
   z-index: 2;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: var(--frame) var(--frame) var(--frame-bottom);
+  padding: var(--frame-t) var(--frame-r) var(--frame-bottom) var(--frame-l);
 }
 
 [data-frame='on'] .shell {
-  padding-left: calc(var(--frame) + 5px);
-  padding-right: calc(var(--frame) + 5px);
+  padding-left: calc(var(--frame-l) + 5px);
+  padding-right: calc(var(--frame-r) + 5px);
 }
 
 .main {
@@ -285,7 +285,7 @@
 /* ─── Top bar ────────────────────────────────────────────────────────────── */
 .header {
   position: sticky;
-  top: var(--frame);
+  top: var(--frame-t);
   z-index: 40;
 }
 
@@ -516,7 +516,7 @@
 .fab-stack {
   position: fixed;
   z-index: 45;
-  right: calc(var(--frame) + 14px);
+  right: calc(var(--frame-r) + 14px);
   bottom: calc(var(--frame-bottom) + 14px);
   display: grid;
   gap: 8px;
@@ -550,10 +550,10 @@
 .drawer {
   position: fixed;
   z-index: 60;
-  top: var(--frame);
-  right: var(--frame);
+  top: var(--frame-t);
+  right: var(--frame-r);
   bottom: var(--frame-bottom);
-  width: min(420px, calc(100% - 2 * var(--frame)));
+  width: min(420px, calc(100% - var(--frame-l) - var(--frame-r)));
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -713,13 +713,13 @@
   }
 
   .hud-caption {
-    left: calc(var(--frame) + 6px);
-    right: calc(var(--frame) + 6px);
+    left: calc(var(--frame-l) + 6px);
+    right: calc(var(--frame-r) + 6px);
     letter-spacing: 0.14em;
   }
 
   .fab-stack {
-    right: calc(var(--frame) + 8px);
+    right: calc(var(--frame-r) + 8px);
     bottom: calc(var(--frame-bottom) + 8px);
   }
 
