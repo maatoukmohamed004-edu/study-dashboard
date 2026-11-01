@@ -8,7 +8,7 @@
 import { useSyncExternalStore } from 'react'
 import { modules, type ModuleId } from '../data/plan'
 import { moduleHues, presetById } from '../data/presets'
-import type { BgType, Settings } from '../data/settings-schema'
+import { ROUNDNESS_PX, type BgType, type RadiusOverride, type Settings } from '../data/settings-schema'
 import { caps, getMedia, subscribeMedia, type Media } from './capabilities'
 import { contrast, inkOn, luminance, mix, rgba } from './color'
 import { getSettings, subscribeSettings } from './settings'
@@ -41,7 +41,7 @@ export interface Resolved {
   speed: number
   glass: GlassEngine
   glassNote: string | null
-  glassOn: { header: boolean; cards: boolean; buttons: boolean }
+  glassOn: { header: boolean; navbar: boolean; cards: boolean; buttons: boolean }
   /** Background actually shown. */
   bg: BgType
   /** For 'dither': true = WebGL sphere, false = static CSS stand-in. */
@@ -119,6 +119,7 @@ export function resolve(s: Settings, m: Media): Resolved {
   const targets = s['glass.applyTo']
   const glassOn = {
     header: glass !== 'off' && targets.includes('header'),
+    navbar: glass !== 'off' && targets.includes('navbar'),
     cards: glass !== 'off' && targets.includes('cards'),
     buttons: glass !== 'off' && targets.includes('buttons'),
   }
@@ -210,8 +211,31 @@ const FULL = '9999px'
  * - Groups: one variable per kind of surface, so a group can be overridden on its own.
  * - Nested surfaces subtract their parent's padding in CSS: max(0px, calc(outer - padding)).
  */
+interface Shape {
+  /** Base radius of the group in px. */
+  r: number
+  /** Controls in the group become fully round (the Pill preset). */
+  pill: boolean
+}
+
+type GroupKey = 'appearance.radiusNav' | 'appearance.radiusCards' | 'appearance.radiusButtons' | 'appearance.radiusInputs' | 'appearance.radiusSheets' | 'appearance.radiusHud'
+
+/** A group's shape: the master (linked, or "Same as master") or its own preset. */
+export function groupShape(s: Settings, key: GroupKey): Shape {
+  // Linked: everything follows the master, except the floating tab bar, which is a pill by design.
+  const o: RadiusOverride = s['appearance.radiusLink'] ? (key === 'appearance.radiusNav' ? 'pill' : 'master') : s[key]
+  if (o === 'master') return { r: s['appearance.radius'], pill: s['appearance.roundness'] === 'pill' }
+  return { r: ROUNDNESS_PX[o], pill: o === 'pill' }
+}
+
 export function radiusVars(s: Settings): Record<string, string> {
   const R = s['appearance.radius']
+  const cards = groupShape(s, 'appearance.radiusCards')
+  const buttons = groupShape(s, 'appearance.radiusButtons')
+  const inputs = groupShape(s, 'appearance.radiusInputs')
+  const sheets = groupShape(s, 'appearance.radiusSheets')
+  const hud = groupShape(s, 'appearance.radiusHud')
+  const nav = groupShape(s, 'appearance.radiusNav')
   return {
     '--radius-xs': px(R * 0.25),
     '--radius-s': px(R * 0.45),
@@ -220,20 +244,23 @@ export function radiusVars(s: Settings): Record<string, string> {
     '--radius-xl': px(R * 1.4),
     '--radius-full': FULL,
     // Cards & panels: cards, chart frames, notes, the week's blocks
-    '--radius-card': px(R),
-    '--radius-card-m': px(R * 0.7),
-    '--radius-card-s': px(R * 0.45),
+    '--radius-card': px(cards.r),
+    '--radius-card-m': px(cards.r * 0.7),
+    '--radius-card-s': px(cards.r * 0.45),
     // Buttons & chips (square icon buttons, tags, badges)
-    '--radius-btn': px(R * 0.45),
-    // Inputs: text fields, selects, segmented switches, checkboxes
-    '--radius-input': px(R * 0.45),
-    '--radius-check': px(Math.min(R * 0.45, 6)),
+    '--radius-btn': buttons.pill ? FULL : px(buttons.r * 0.45),
+    // Inputs: text fields, selects, segmented switches, checkboxes; multi-line fields never go pill
+    '--radius-input': inputs.pill ? FULL : px(inputs.r * 0.45),
+    '--radius-area': px(inputs.pill ? 16 : inputs.r * 0.45),
+    '--radius-check': px(Math.min(inputs.r * 0.45, 6)),
     // Sheets & dialogs: the quick drawer, the "More" sheet, toasts, tooltips
-    '--radius-sheet': px(R),
-    '--radius-toast': px(R * 0.7),
-    '--radius-tip': px(R * 0.45),
+    '--radius-sheet': px(sheets.r),
+    '--radius-toast': px(sheets.r * 0.7),
+    '--radius-tip': px(sheets.r * 0.45),
     // HUD frame and its corner brackets
-    '--radius-hud': px(R),
+    '--radius-hud': px(hud.r),
+    // Floating tab bar (clamped to half its height in CSS)
+    '--radius-nav': nav.pill ? FULL : px(nav.r),
     // Small marks (dots, swatches, progress bars): follow the master
     '--radius-mark': px(R * 0.25),
   }
@@ -308,6 +335,7 @@ export function applyTheme(s: Settings, r: Resolved) {
     preset: s['appearance.preset'],
     glass: r.glass,
     glassHeader: r.glassOn.header ? 'on' : 'off',
+    glassNavbar: r.glassOn.navbar ? 'on' : 'off',
     glassCards: r.glassOn.cards ? 'on' : 'off',
     glassButtons: r.glassOn.buttons ? 'on' : 'off',
     motion: r.reducedMotion ? 'reduced' : 'full',

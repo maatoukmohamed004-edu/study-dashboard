@@ -17,11 +17,15 @@ export type DisplayFont = 'sofia' | 'antonio' | 'shoulders'
 export type BgType = 'solid' | 'gradient' | 'dots' | 'animated' | 'dither'
 export type Quality = 'auto' | 'low' | 'high'
 export type GlassMode = 'off' | 'blur' | 'refraction' | 'liquid'
-export type GlassTarget = 'header' | 'cards' | 'buttons'
+export type GlassTarget = 'header' | 'navbar' | 'cards' | 'buttons'
 export type OrbStyle = 'dotted' | 'liquid'
 export type MotionMode = 'auto' | 'reduced' | 'full'
 export type NavTransition = 'reveal' | 'wash' | 'fade' | 'none'
 export type NavOrigin = 'press' | 'center'
+/** Appearance → Roundness presets; 'custom' = the master slider is at another value. */
+export type Roundness = 'square' | 'soft' | 'rounded' | 'very' | 'pill' | 'custom'
+/** Per-group override when "Link all to master" is off. */
+export type RadiusOverride = 'master' | 'square' | 'soft' | 'rounded' | 'very' | 'pill'
 /** Every routable page; the bottom tab bar shows four of them. */
 export type NavPage = 'today' | 'week' | 'plan' | 'resources' | 'absences' | 'check' | 'settings'
 export type { PresetId }
@@ -35,7 +39,16 @@ export interface Settings {
   'appearance.background': string | null
   'appearance.textSize': number
   'appearance.density': Density
+  /** Master corner radius in px (0–40). */
   'appearance.radius': number
+  'appearance.roundness': Roundness
+  'appearance.radiusLink': boolean
+  'appearance.radiusNav': RadiusOverride
+  'appearance.radiusCards': RadiusOverride
+  'appearance.radiusButtons': RadiusOverride
+  'appearance.radiusInputs': RadiusOverride
+  'appearance.radiusSheets': RadiusOverride
+  'appearance.radiusHud': RadiusOverride
   'appearance.monoUppercase': boolean
   'appearance.displayFont': DisplayFont
   'background.type': BgType
@@ -122,7 +135,11 @@ interface Common<K extends SettingKey> {
   /** Label in the drawer, where the section heading is not visible. */
   quickLabel?: string
   /** Other settings to write together with this one (e.g. a preset's bundle). */
-  apply?: (value: Settings[K]) => Partial<Settings>
+  apply?: (value: Settings[K], current: Settings) => Partial<Settings>
+  /** Show an "Applied … / Undo" toast after a change (settings that rewrite many others). */
+  undo?: boolean
+  /** Sub-heading inside the section; consecutive entries with the same group share it. */
+  group?: string
 }
 
 export type SettingDef<K extends SettingKey = SettingKey> = Common<K> &
@@ -138,6 +155,35 @@ export type SettingDef<K extends SettingKey = SettingKey> = Common<K> &
   )
 
 const ON_WEBGL = ['animated', 'dither'] as const
+
+/** Master radius of each roundness preset. Pill = Very round plus fully round controls. */
+export const ROUNDNESS_PX: Record<Exclude<Roundness, 'custom'>, number> = { square: 0, soft: 8, rounded: 16, very: 28, pill: 28 }
+
+/** The preset a master radius corresponds to (Pill is kept while the radius stays at 28). */
+export function roundnessFor(radius: number, current: Roundness): Roundness {
+  if (current === 'pill' && radius === ROUNDNESS_PX.pill) return 'pill'
+  const hit = (['square', 'soft', 'rounded', 'very'] as const).find((k) => ROUNDNESS_PX[k] === radius)
+  return hit ?? 'custom'
+}
+
+const ROUND_OPTIONS = [
+  { value: 'square', label: 'Square' },
+  { value: 'soft', label: 'Soft' },
+  { value: 'rounded', label: 'Rounded' },
+  { value: 'very', label: 'Very round' },
+  { value: 'pill', label: 'Pill' },
+]
+const OVERRIDE_OPTIONS: Option[] = [{ value: 'master', label: 'Same as master' }, ...ROUND_OPTIONS]
+const UNLINKED = { key: 'appearance.radiusLink', is: [false] } as const
+
+function radiusOverride<K extends 'appearance.radiusNav' | 'appearance.radiusCards' | 'appearance.radiusButtons' | 'appearance.radiusInputs' | 'appearance.radiusSheets' | 'appearance.radiusHud'>(
+  key: K,
+  label: string,
+  description: string,
+  def: RadiusOverride = 'master',
+) {
+  return { key, section: 'appearance', group: 'Roundness', label, description, control: 'select', options: OVERRIDE_OPTIONS, default: def, dependsOn: UNLINKED } as const
+}
 const DISC = ['reveal', 'wash'] as const
 
 /** All pages, in their canonical order (used for the tab picker and the "More" sheet). */
@@ -165,6 +211,7 @@ export const schema = {
     options: presetList.map((p) => ({ value: p.id, label: p.label, description: p.description })),
     default: 'mono-noir',
     quick: true,
+    undo: true,
     apply: (id) => presetBundles[id],
   },
   'appearance.colorMode': {
@@ -224,17 +271,6 @@ export const schema = {
     ],
     default: 'comfortable',
   },
-  'appearance.radius': {
-    key: 'appearance.radius',
-    section: 'appearance',
-    label: 'Corner radius',
-    control: 'range',
-    min: 0,
-    max: 20,
-    step: 1,
-    unit: 'px',
-    default: 0,
-  },
   'appearance.monoUppercase': {
     key: 'appearance.monoUppercase',
     section: 'appearance',
@@ -256,6 +292,46 @@ export const schema = {
     ],
     default: 'sofia',
   },
+  'appearance.roundness': {
+    key: 'appearance.roundness',
+    section: 'appearance',
+    group: 'Roundness',
+    label: 'Roundness',
+    description: 'Sets the corner radius below. Pill also makes buttons, chips and fields fully round.',
+    control: 'segmented',
+    options: [...ROUND_OPTIONS, { value: 'custom', label: 'Custom' }],
+    default: 'square',
+    apply: (v) => (v === 'custom' ? {} : { 'appearance.radius': ROUNDNESS_PX[v] }),
+  },
+  'appearance.radius': {
+    key: 'appearance.radius',
+    section: 'appearance',
+    group: 'Roundness',
+    label: 'Corner radius',
+    description: 'The master value. Cards use it as is; buttons, fields and small marks use a share of it.',
+    control: 'range',
+    min: 0,
+    max: 40,
+    step: 1,
+    unit: 'px',
+    default: 0,
+    apply: (v, cur) => ({ 'appearance.roundness': roundnessFor(v, cur['appearance.roundness']) }),
+  },
+  'appearance.radiusLink': {
+    key: 'appearance.radiusLink',
+    section: 'appearance',
+    group: 'Roundness',
+    label: 'Link all to master',
+    description: 'On: every group follows the master radius, and the floating tab bar stays a pill. Off: set each group below.',
+    control: 'toggle',
+    default: true,
+  },
+  'appearance.radiusNav': radiusOverride('appearance.radiusNav', 'Navigation bar', 'The floating tab bar on phones and its "More" panel. The docked bar stays square.', 'pill'),
+  'appearance.radiusCards': radiusOverride('appearance.radiusCards', 'Cards & panels', 'Cards, chart frames, notes and the week’s blocks.'),
+  'appearance.radiusButtons': radiusOverride('appearance.radiusButtons', 'Buttons & chips', 'Buttons, square icon buttons, chips, tags and badges.'),
+  'appearance.radiusInputs': radiusOverride('appearance.radiusInputs', 'Inputs', 'Text fields, selects, segmented switches and checkboxes.'),
+  'appearance.radiusSheets': radiusOverride('appearance.radiusSheets', 'Sheets & dialogs', 'The quick-settings drawer, the "More" sheet, toasts and tooltips.'),
+  'appearance.radiusHud': radiusOverride('appearance.radiusHud', 'HUD frame', 'The double hairline frame and its corner brackets.'),
 
   // Background
   'background.type': {
@@ -449,10 +525,11 @@ export const schema = {
     control: 'checkboxes',
     options: [
       { value: 'header', label: 'Header' },
+      { value: 'navbar', label: 'Navigation bar', description: 'The tab bar and "More" panel on phones.' },
       { value: 'cards', label: 'Cards' },
       { value: 'buttons', label: 'Buttons' },
     ],
-    default: ['header', 'cards', 'buttons'],
+    default: ['header', 'navbar', 'cards', 'buttons'],
     dependsOn: { key: 'glass.mode', is: ['blur', 'refraction', 'liquid'] },
   },
 

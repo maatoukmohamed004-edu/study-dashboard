@@ -63,7 +63,7 @@
     border-top: 1px solid var(--line-strong);
   }
 
-  :root[data-tabbar='on'][data-glass-header='on'] .tabbar {
+  :root[data-tabbar='on'][data-glass-navbar='on'] .tabbar {
     background: transparent;
   }
 

@@ -63,8 +63,31 @@ const ok = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'}  
   await page.locator('[data-key="appearance.density"]').getByRole('radio', { name: 'Compact' }).click();
   ok('Density → compact', (await cssVar('--density')) === '0.72');
   const radius = page.locator('[data-key="appearance.radius"] input[type=range]');
+  const toastsBefore = await page.locator('.toast').count();
   await radius.fill('12');
-  ok('Corner radius → 12px', (await cssVar('--r-lg')) === '12px');
+  ok('Corner radius → 12px', (await cssVar('--radius-card')) === '12px' && (await cssVar('--radius-btn')) === '5px', `card ${await cssVar('--radius-card')} btn ${await cssVar('--radius-btn')}`);
+  ok('Radius slider marks the preset Custom, no toast', (await page.locator('[data-key="appearance.roundness"] [aria-checked="true"]').innerText()).trim().toLowerCase() === 'custom' && (await page.locator('.toast').count()) === toastsBefore);
+  // Roundness presets, Pill, and per-group overrides
+  const roundness = page.locator('[data-key="appearance.roundness"]');
+  await roundness.getByRole('radio', { name: 'Rounded' }).click();
+  ok('Roundness → Rounded sets the master to 16', (await radius.inputValue()) === '16' && (await cssVar('--radius-card')) === '16px' && (await cssVar('--radius-hud')) === '16px');
+  await roundness.getByRole('radio', { name: 'Pill' }).click();
+  ok('Roundness → Pill: controls fully round, cards 28', (await cssVar('--radius-btn')) === '9999px' && (await cssVar('--radius-input')) === '9999px' && (await cssVar('--radius-card')) === '28px' && (await cssVar('--radius-area')) === '16px');
+  const pillBtn = await page.evaluate(() => getComputedStyle(document.querySelector('.btn')).borderTopLeftRadius);
+  ok('A rendered button is a pill', pillBtn === '9999px', pillBtn);
+  ok('Group overrides hidden while linked', (await page.locator('[data-key="appearance.radiusCards"]').count()) === 0);
+  await page.locator('[data-key="appearance.radiusLink"]').getByRole('radio', { name: 'Off' }).click();
+  ok('Unlinking shows six group overrides', (await page.locator('[data-key^="appearance.radius"] select').count()) === 6);
+  await page.locator('[data-key="appearance.radiusCards"] select').selectOption('square');
+  await page.locator('[data-key="appearance.radiusHud"] select').selectOption('soft');
+  ok('Cards → Square, HUD → Soft, buttons still pill', (await cssVar('--radius-card')) === '0px' && (await cssVar('--radius-hud')) === '8px' && (await cssVar('--radius-btn')) === '9999px');
+  const frameR = await page.evaluate(() => getComputedStyle(document.querySelector('.hud-frame')).borderTopLeftRadius);
+  ok('HUD frame follows its override', frameR === '8px', frameR);
+  await page.locator('[data-key="appearance.radiusLink"]').getByRole('radio', { name: 'On' }).click();
+  ok('Relinking: cards follow the master again', (await cssVar('--radius-card')) === '28px');
+  await roundness.getByRole('radio', { name: 'Square' }).click();
+  ok('Roundness → Square: everything 0', (await cssVar('--radius-card')) === '0px' && (await cssVar('--radius-btn')) === '0px' && (await radius.inputValue()) === '0');
+  await radius.fill('12');
   await page.locator('[data-key="appearance.monoUppercase"]').getByRole('radio', { name: 'Off' }).click();
   ok('Uppercase mono labels off', (await ds('monoCase')) === 'none');
   await page.locator('[data-key="appearance.displayFont"]').getByRole('radio', { name: 'Antonio' }).click();
@@ -72,7 +95,7 @@ const ok = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'}  
 
   // Reset section with undo
   await page.getByRole('button', { name: 'Reset section' }).click();
-  ok('Reset section → defaults', (await cssVar('--density')) === '1' && (await ds('monoCase')) === 'upper' && (await cssVar('--r-lg')) === '0px');
+  ok('Reset section → defaults', (await cssVar('--density')) === '1' && (await ds('monoCase')) === 'upper' && (await cssVar('--radius-card')) === '0px');
   await page.getByRole('button', { name: 'Undo' }).click();
   ok('Reset section undo', (await cssVar('--density')) === '0.72');
   await page.getByRole('button', { name: 'Reset section' }).click();
@@ -169,7 +192,7 @@ const ok = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'}  
   const file = S + '/' + dl.suggestedFilename(); await dl.saveAs(file);
   const exported = JSON.parse(fs.readFileSync(file, 'utf8'));
   ok('Export settings file name', /^study-dashboard-settings-\d{4}-\d{2}-\d{2}\.json$/.test(dl.suggestedFilename()), dl.suggestedFilename());
-  ok('Export has kind + version + values', exported.kind === 'study-dashboard-settings' && exported.version === 1 && exported.values['appearance.preset'] === 'graphite');
+  ok('Export has kind + version + values', exported.kind === 'study-dashboard-settings' && exported.version === 2 && exported.values['appearance.preset'] === 'graphite');
 
   // Imports
   const importFile = async (name, body) => {
@@ -185,11 +208,19 @@ const ok = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'}  
   ok('Progress backup rejected as settings', /progress backup/.test(t) && (await ds('preset')) === presetBefore, t);
   const partial = { kind: 'study-dashboard-settings', version: 1, values: { 'appearance.preset': 'light', 'appearance.colorMode': 'light', 'glass.blur': 'very', 'hud.frame': 'yes', 'appearance.radius': 999, 'bogus.key': 1 } };
   t = await importFile('partial.json', JSON.stringify(partial));
-  ok('Partly invalid import: good keys applied, bad keys reset per key', (await ds('preset')) === 'light' && (await cssVar('--glass-blur')) === '16px' && (await ds('frame')) === 'on' && (await cssVar('--r-lg')) === '20px', t);
+  ok('Partly invalid import: good keys applied, bad keys reset per key', (await ds('preset')) === 'light' && (await cssVar('--glass-blur')) === '16px' && (await ds('frame')) === 'on' && (await cssVar('--radius-card')) === '40px', t);
   await page.getByRole('button', { name: 'Undo import' }).click();
   ok('Undo import', (await ds('preset')) === 'graphite');
   t = await importFile('legacy.json', JSON.stringify({ 'appearance.preset': 'midnight' }));
   ok('Unversioned file is migrated (v0 → v1)', (await ds('preset')) === 'midnight', t);
+  // v1 → v2: the tab bar keeps the glass it had through "Header"; a saved radius maps to its preset
+  t = await importFile('v1.json', JSON.stringify({ kind: 'study-dashboard-settings', version: 1, values: { 'appearance.preset': 'midnight', 'glass.applyTo': ['header', 'buttons'], 'appearance.radius': 8 } }));
+  const v2 = await page.evaluate(() => JSON.parse(localStorage.getItem('study-dashboard:settings:v1')));
+  ok('v1 file migrates to v2 per key', v2.version === 2 && v2.values['glass.applyTo'].includes('navbar') && v2.values['glass.applyTo'].length === 3 && v2.values['appearance.roundness'] === 'soft' && v2.values['appearance.radiusLink'] === true, JSON.stringify({ a: v2.values['glass.applyTo'], r: v2.values['appearance.roundness'] }));
+  t = await importFile('v1b.json', JSON.stringify({ kind: 'study-dashboard-settings', version: 1, values: { 'glass.applyTo': ['cards'], 'appearance.radius': 14 } }));
+  const v2b = await page.evaluate(() => JSON.parse(localStorage.getItem('study-dashboard:settings:v1')).values);
+  ok('v1 without Header glass stays without navbar glass; radius 14 → Custom', v2b['glass.applyTo'].join() === 'cards' && v2b['appearance.roundness'] === 'custom');
+  t = await importFile('legacy.json', JSON.stringify({ 'appearance.preset': 'midnight' }));
 
   // Reset all + undo
   await page.getByRole('button', { name: 'Reset all settings' }).click();

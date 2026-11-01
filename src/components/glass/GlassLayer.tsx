@@ -17,7 +17,7 @@ import { loadLiquidGlass, type LiquidContainer } from './liquidGlass'
  * orientation change and whenever a roundness setting changes.
  */
 interface Props {
-  target: 'header' | 'buttons'
+  target: 'header' | 'navbar' | 'buttons'
   /** Width of the refracting rim in px. */
   bezel?: number
   /** 0–1 share of the refraction strength setting. */

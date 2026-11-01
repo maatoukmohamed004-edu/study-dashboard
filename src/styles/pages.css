@@ -1335,6 +1335,14 @@
   border-top: 1px solid var(--line-strong);
 }
 
+.settings-group + .settings-group {
+  margin-top: var(--s6);
+}
+
+.settings-group-title {
+  margin-bottom: var(--s2);
+}
+
 .setting {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);

@@ -24,7 +24,7 @@ export function TabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: (opene
 
   return (
     <nav className="tabbar" aria-label="Pages">
-      <GlassLayer target="header" bezel={14} />
+      <GlassLayer target="navbar" bezel={14} />
       <ul className="tabbar-list">
         {tabs.map((id) => {
           const { Icon, short } = PAGE_META[id]

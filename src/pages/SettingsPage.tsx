@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { sections, settingsList, type SectionId } from '../data/settings-schema'
+import { sections, settingsList, type SectionId, type SettingDef } from '../data/settings-schema'
 import { BackupButtons } from '../components/BackupButtons'
 import { ContrastGuard } from '../components/settings/ContrastGuard'
 import { SettingControl } from '../components/settings/SettingControl'
@@ -10,6 +10,8 @@ import { useToday } from '../lib/env'
 import { exportSettings, getSettings, readSettingsFile, replaceSettings, resetAll, resetSection, SettingsFileError, useSettings } from '../lib/settings'
 import { useResolved } from '../lib/theme'
 import { showToast } from '../lib/toast'
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
 const ENGINE_LABEL = { off: 'Off', blur: 'Frosted blur', svg: 'Refraction', liquid: 'liquid-glass-js' } as const
 const BG_LABEL = { solid: 'Solid', gradient: 'Static gradient', dots: 'Dot grid', animated: 'Animated gradient', dither: 'Dithered sphere' } as const
@@ -79,6 +81,13 @@ function SettingsSection({ id, focusable }: { id: SectionId; focusable: boolean 
   const s = useSettings()
   const r = useResolved()
   const defs = settingsList.filter((d) => d.section === id && isVisible(d, s))
+  // Consecutive entries with the same `group` share a sub-heading (Appearance → Roundness, …).
+  const groups: { name: string | null; defs: SettingDef[] }[] = []
+  for (const d of defs) {
+    const name = d.group ?? null
+    if (groups.length && groups[groups.length - 1].name === name) groups[groups.length - 1].defs.push(d)
+    else groups.push({ name, defs: [d] })
+  }
   const index = sections.findIndex((x) => x.id === id) + 1
 
   return (
@@ -121,11 +130,20 @@ function SettingsSection({ id, focusable }: { id: SectionId; focusable: boolean 
         </p>
       )}
 
-      <div className="settings-list">
-        {defs.map((d) => (
-          <SettingControl key={d.key} k={d.key} />
-        ))}
-      </div>
+      {groups.map((g) => (
+        <div key={g.name ?? 'main'} className="settings-group" role={g.name ? 'group' : undefined} aria-labelledby={g.name ? `h-${id}-${slug(g.name)}` : undefined}>
+          {g.name && (
+            <h3 id={`h-${id}-${slug(g.name)}`} className="sub-title settings-group-title">
+              {g.name}
+            </h3>
+          )}
+          <div className="settings-list">
+            {g.defs.map((d) => (
+              <SettingControl key={d.key} k={d.key} />
+            ))}
+          </div>
+        </div>
+      ))}
 
       {id === 'appearance' && <ContrastGuard />}
       {id === 'diagnostics' && <Diagnostics />}

@@ -7,11 +7,11 @@
  * - Open tabs stay in sync through the storage event.
  */
 import { useSyncExternalStore } from 'react'
-import { defaults, schema, sections, settingsList, type SectionId, type SettingDef, type SettingKey, type Settings } from '../data/settings-schema'
+import { defaults, roundnessFor, schema, sections, settingsList, type SectionId, type SettingDef, type SettingKey, type Settings } from '../data/settings-schema'
 import { normalizeHex } from './color'
 
 export const SETTINGS_KEY = 'study-dashboard:settings:v1'
-export const SETTINGS_VERSION = 1
+export const SETTINGS_VERSION = 2
 export const SETTINGS_FILE_KIND = 'study-dashboard-settings'
 
 // ─── Coercion (per key) ─────────────────────────────────────────────────────
@@ -72,6 +72,17 @@ type Migration = (values: Record<string, unknown>) => Record<string, unknown>
 const migrations: Record<number, Migration> = {
   // 0 → 1: unversioned data was a bare { key: value } map; the keys are unchanged.
   0: (values) => values,
+  // 1 → 2: new keys get their defaults (fromValues does that); two derive from saved values.
+  1: (values) => {
+    const out = { ...values }
+    // The tab bar used to take its glass from "Header"; it now has its own "Navigation bar" box.
+    const apply = out['glass.applyTo']
+    if (Array.isArray(apply) && apply.includes('header') && !apply.includes('navbar')) out['glass.applyTo'] = [...apply, 'navbar']
+    // The roundness preset that matches a saved radius (old range 0–20, still valid).
+    const radius = out['appearance.radius']
+    if (typeof radius === 'number' && !('appearance.roundness' in out)) out['appearance.roundness'] = roundnessFor(radius, 'square')
+    return out
+  },
 }
 
 export class SettingsFileError extends Error {}
@@ -167,7 +178,7 @@ export function setSettings(patch: Partial<Settings>) {
 
 export function setSetting<K extends SettingKey>(key: K, value: Settings[K]) {
   const def = schema[key] as SettingDef<K>
-  const bundle = def.apply ? def.apply(value) : {}
+  const bundle = def.apply ? def.apply(value, settings) : {}
   setSettings({ ...bundle, [key]: value } as Partial<Settings>)
 }
 

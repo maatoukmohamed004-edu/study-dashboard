@@ -18,8 +18,8 @@ export function SettingControl({ k, compact = false }: { k: SettingKey; compact?
   const descId = def.description ? `${id}-desc` : undefined
 
   function write(v: unknown) {
-    if (def.apply) {
-      // Settings that carry a bundle (presets) change many values: offer undo.
+    if (def.undo) {
+      // Settings that rewrite many others (presets): offer undo.
       const previous = getSettings()
       setSetting(k, v as never)
       const label = def.key === 'appearance.preset' ? presetById[v as keyof typeof presetById]?.label : String(v)

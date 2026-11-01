@@ -124,6 +124,7 @@
 }
 
 textarea.input {
+  border-radius: var(--radius-area);
   resize: vertical;
   min-height: 64px;
 }
