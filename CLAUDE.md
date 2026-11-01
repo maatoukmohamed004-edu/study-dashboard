@@ -28,8 +28,9 @@ about z = 1.5 in every period. The plan runs week by week from **Mon 2026-11-02*
 | `#/check` | Sunday check | Three weekly numbers plus trend charts vs. targets; z-score |
 | `#/settings[/section]` | Settings | Everything configurable (section 6) |
 
-On phones (≤ 640 px) navigation is a bottom tab bar (four tabs + "More" sheet), and changing
-page plays a disc transition everywhere. See §7a.
+On phones (≤ 640 px) navigation is a floating glass tab bar (four tabs + a "More" panel) with a
+sliding current-tab highlight wearing a liquid-metal rim, and changing page plays a disc
+transition everywhere. See §7a and §7b. Every corner in the app comes from radius tokens (§7).
 
 ## 2. Hard rules: do not break these
 
@@ -37,14 +38,19 @@ page plays a disc transition everywhere. See §7a.
    (`Can not resolve #include <cube_uv_reflection_fragment>`), and 0.183+ logs a Clock
    deprecation warning through fiber. `@types/three` matches. (`^0.182.0` in package.json is
    the same range as `~0.182.0` for a 0.x version.)
-2. **three.js, ShaderGradient and html2canvas stay in lazy chunks.** The first-load JS must
-   stay near **100 kB gzipped**. It is currently about 103 kB: an 80 kB entry chunk plus the
-   preloaded `theme`, `env` and `jsx-runtime` chunks. It was 99 kB before the navigation layer
-   and transitions were added. CSS is about 18 kB.
+2. **three.js, ShaderGradient, html2canvas and the liquid-metal shader stay in lazy chunks.**
+   The first-load JS must stay near **100 kB gzipped**. It is 103.2 kB (gzip -9, measured by
+   `tools/verify/bundle-size.cjs`): an 80 kB entry chunk plus the preloaded `theme`, `env` and
+   `jsx-runtime` chunks. Phase 4 added 0.3 kB (102.9 → 103.2); it was 99 kB before phase 3.
+   CSS is about 20 kB.
    - Lazy: every page except Today (through `src/pages/registry.ts`, preloaded when idle), the
-     Settings UI, the quick drawer, the tab bar and the "More" sheet.
+     Settings UI (including `settings-text.ts`, `contrast.ts`, `settings-files.ts`), the quick
+     drawer, the tab bar, the "More" sheet and `metalEngine` (+ `@paper-design/shaders`).
    - Measure the entry chunk plus every `<link rel="modulepreload">` in `dist/index.html`,
-     not just `index-*.js`.
+     not just `index-*.js`: `node tools/verify/bundle-size.cjs metalEngine`.
+   - Anything only the Settings UI needs (help text, guards, file I/O) goes in a module only the
+     Settings UI imports. Lazy code that must react to app state listens to DOM signals
+     (`data-navigating`, the `navigating` event) instead of importing startup modules.
    - Splitting the 1.4 kB transition engine into its own chunk saved nothing (chunk overhead),
      so it stays static.
 3. **Never touch, rename or migrate the progress key `study-dashboard:v1`**, nor its backup file
@@ -57,8 +63,10 @@ page plays a disc transition everywhere. See §7a.
 6. **WCAG AA on every text element in every preset**: 4.5:1 for normal text, 3:1 for large.
    Also keyboard access, a visible focus ring, a skip link, live regions, and respect for
    reduced motion. Verify on rendered pixels with `tools/verify/matrix.cjs` (section 11).
-7. **No new runtime dependency unless unavoidable, and justify it.** The only additions in
-   phase 2 were Fontsource font packages.
+7. **No new runtime dependency unless unavoidable, and justify it.** Phase 2 added Fontsource
+   font packages; phase 4 added `@paper-design/shaders`, **pinned exactly at `0.0.81`**
+   (Apache-2.0, zero dependencies; README carries its NOTICE). Import only `ShaderMount` and
+   `liquidMetalFragmentShader`, and only from `metalEngine.ts`.
 8. **Open-source fonts only, self-hosted through Fontsource.** No Google Fonts CDN, no
    proprietary faces.
 9. **Don't copy the reference portfolio** whose look inspired the restyle: no names, logos, copy
@@ -77,6 +85,15 @@ page plays a disc transition everywhere. See §7a.
 13. **Desktop (≥ 641 px) must stay visually identical** unless a change is asked for there.
     - Phone-only work goes inside `@media (max-width: 640px)` and/or `[data-tabbar='on']`.
     - Prove it with `tools/verify/desktop-diff.cjs` (§11).
+14. **No hard-coded corners.** Every `border-radius` uses a `--radius-*` token (§7); nested
+    surfaces use `max(0px, calc(<parent token> - <padding>))`. Only true circles use `50%`.
+    `GlassLayer` inherits its host's radius; never pass it a radius.
+15. **At most 2 live shader canvases (1 on phones)**, through `metalEngine`'s budget. Never mount
+    a `ShaderMount` anywhere else, and never let a metal control render empty: the CSS rim is
+    always painted under the canvas.
+16. **Write `backdrop-filter` unprefixed only.** Lightning CSS (Vite's minifier) adds the
+    `-webkit-` copy itself, and when both are written in the order unprefixed → prefixed it
+    drops the unprefixed one, so Chromium gets no blur at all (trap 23).
 
 ## 3. Stack
 
@@ -109,10 +126,11 @@ npm run typecheck  # tsc -b
 ## 4. File map
 
 ```
-index.html                  theme-color meta, viewport-fit=cover (insets handled by --safe-* tokens), #root, favicon
+index.html                  theme-color meta, viewport-fit=cover (insets handled by --safe-* tokens), #root, favicon,
+                            and an EMPTY <style data-paper-shader> in <body> (stops Paper Shaders injecting CSS into <head>)
 vite.config.ts              base './', React plugin
 .github/workflows/deploy.yml  push to main → npm ci, build → GitHub Pages (Source must be "GitHub Actions")
-src/main.tsx                font imports, the 6 stylesheets, startTheme() BEFORE createRoot
+src/main.tsx                font imports, the 7 stylesheets, startTheme() BEFORE createRoot
 src/fonts.d.ts              declare module '@fontsource-variable/*' (bare side-effect imports)
 src/App.tsx                 shell: skip link, Background, HudChrome, Header, notices, PageHost,
                             .vt-layer (fallback transition overlay), route announcer, Caption,
@@ -121,18 +139,24 @@ src/App.tsx                 shell: skip link, Background, HudChrome, Header, not
 src/data/
   plan.ts                   THE study plan (single source of content); typed sections, see §5
   settings-schema.ts        THE settings schema (single source of settings); see §6
+  settings-text.ts          help text per setting and section (lazy: only the Settings UI imports it)
   presets.ts                5 presets × dark/light palettes, presetBundles, moduleHues (Midnight)
 
 src/lib/
   store.ts                  progress store, key study-dashboard:v1 (useSyncExternalStore), export/import
-  settings.ts               settings store, key study-dashboard:settings:v1: coerce, migrate, sync, import/export
-  theme.ts                  resolve(settings, media) → Resolved; applyTheme() → CSS vars + data-*; contrast checks, autoFix
-  capabilities.ts           caps {webgl, chromium}; live media store {phone, osReducedMotion, osDark, visible}
+  settings.ts               settings store, key study-dashboard:settings:v1: coerce, migrate (v2), sync
+  settings-files.ts         settings export/import (lazy, Settings page only)
+  theme.ts                  resolve(settings, media) → Resolved (incl. glass targets, metal); applyTheme() → CSS vars
+                            + data-*; radiusVars()/groupShape() (roundness tokens); navbarTint()/navPillColor() (bar AA)
+  contrast.ts               contrastChecks(), autoFix(): the colour guard (lazy, Settings page only)
+  capabilities.ts           caps {webgl, webgl2, chromium, backdrop}; live media store {phone, osReducedMotion, osDark,
+                            osReducedTransparency, visible}
   env.ts                    now() (real or simulated clock), useNow/useToday/useSimulation, DPR cap, and the
                             NAVIGATION LAYER: hash routes, navigate(), link interception, press origin,
                             per-entry scroll restore, focus + announce, tap replay during transitions
   transition.ts             page transitions: View Transition disc reveal / crossfade, overlay disc
-                            (wash, and the no-API fallback), reduced motion, skip-to-latest
+                            (wash, and the no-API fallback), reduced motion, skip-to-latest;
+                            <html data-navigating> + 'navigating' event while one runs
   color.ts                  hex/rgb, luminance, WCAG contrast, mix, rgba, inkOn
   schedule.ts               plan → concrete days and blocks (weekFor, scheduleFor, weekSchedule, plannedMinutes)
   dates.ts                  ISO-date helpers (local time, no library)
@@ -150,8 +174,12 @@ src/components/
   settings/helpers.ts       meets(requires), isVisible(dependsOn), applyPatch (+Undo toast)
   settings/ContrastGuard.tsx   live WCAG table + "Fix automatically"
   settings/QuickSettings.tsx   modal drawer (focus trap, Esc) with the 6 `quick` settings
-  glass/GlassLayer.tsx      per-target glass: svg refraction | blur | liquid-glass-js | off
-  glass/displacementMap.ts  generates the SVG displacement map
+  glass/GlassLayer.tsx      per-target glass (header | navbar | buttons): svg refraction | blur | liquid-glass-js | off;
+                            reads the host's computed size + corners (ResizeObserver + every render)
+  glass/displacementMap.ts  generates the SVG displacement map (per-corner radii, clamped)
+  metal/LiquidMetalSurface.tsx  <LiquidMetalSurface target when>: CSS rim + dark fill; registers with the lazy engine
+  metal/useMetalOn.ts       useMetalOn(target) for the host's data-metal attribute
+  metal/metalEngine.ts      LAZY chunk: ShaderMount + liquid-metal shader, the canvas budget, IO, pause, fallbacks
   glass/liquidGlass.ts      loads vendored liquid-glass-js + html2canvas on demand
   Background.tsx            solid / gradient / dots CSS layers; lazy GradientScene for "animated"; grain
   GradientScene.tsx         ShaderGradient canvas (lazy), PerformanceMonitor quality, pause loop
@@ -163,8 +191,10 @@ src/components/
   BackupButtons.tsx         "Export progress" / "Import progress" (format unchanged since v1)
   Rich.tsx, Toast.tsx, FpsMeter.tsx, SafeBoundary.tsx, icons.tsx
 
-  nav/TabBar.tsx            phone tab bar (lazy): 4 tabs + More, re-tap to top, keyboard watch, swipe
-  nav/MoreSheet.tsx         "More" bottom sheet (lazy): modal, focus trap, Esc/backdrop/swipe-down close
+  nav/TabBar.tsx            phone tab bar (lazy): 4 tabs + More, sliding highlight (one element), metal pill,
+                            re-tap to top, keyboard watch, swipe, hide-on-scroll
+  nav/MoreSheet.tsx         "More" sheet / floating panel (lazy): glass layer + scrolling .sheet-body, modal,
+                            focus trap, Esc/backdrop/swipe-down close
   nav/pages.ts              PAGE_META (label, short label, icon per page), morePages(), swipeOrder()
 
 src/pages/                  TodayPage (eager), Week, Plan, Resources, Absences, Check, Settings (lazy)
@@ -174,13 +204,20 @@ src/styles/
   hud.css                   background layers, HUD frame/corners/grid/mats, top bar, nav, glass layers, banner, drawer, toast, responsive top bar
   components.css            buttons, fields, checkbox, segmented, tags, badges, status strip, hero, progress line, meta, cards, tables
   pages.css                 per-page layouts, settings page (incl. the tab picker), dither stand-in
-  nav.css                   phone tab bar, "More" sheet, keyboard-open rule, phone --frame-bottom
+  nav.css                   phone tab bar (docked + floating), highlight pill, caption chip, hide-on-scroll, "More"
+                            sheet/panel, keyboard-open rule, phone --frame-bottom / --frame-edge
+  metal.css                 liquid-metal rim, fill, tints, hosts ([data-metal='on'])
   transitions.css           @property --vt-r, chrome view-transition-names, the disc mask, overlay layer
 
 tools/verify/               headless-Chromium checks (dev only, not shipped): see §11
-  matrix.cjs                screenshots + pixel contrast (phones: safe-area insets; ":sheet" opens More)
-  settings-e2e.cjs          61 settings checks
-  nav-e2e.cjs               tab bar, More sheet, focus, scroll restore, keyboard, swipe, transition settings
+  matrix.cjs                screenshots + pixel contrast (phones: safe-area insets; ":sheet" opens More);
+                            modes all | presets | glass | phone (390/360) | variants (bar, roundness, glass, metal,
+                            worst-case white/black block behind the bar)
+  settings-e2e.cjs          74 settings checks (incl. roundness and the v1 → v2 migration)
+  nav-e2e.cjs               tab bar (floating + docked), More panel, focus, scroll restore, keyboard, swipe,
+                            hide on scroll, map rebuild on resize, transition settings
+  metal-e2e.cjs             liquid metal: budget, fallbacks, still frames, pause, persistence, a11y, contrast
+  bundle-size.cjs           first-load JS (entry + modulepreloads) and named lazy chunks, gzip -9
   transition-frames.cjs     paused/seeked frames at 0–650 ms with a press marker, per transition style
   desktop-diff.cjs          deterministic desktop shots + pixel compare (before/after proofs)
   sheets.py, seed.json      contact sheets; the progress fixture used by every script
@@ -209,29 +246,39 @@ template), `weeks` (week by week, `weeks[0].start` = `planStart`), `fixedDates` 
 
 | Field | Meaning |
 | --- | --- |
-| `key`, `section`, `label`, `description` | Identity and the text shown in the UI |
+| `key`, `section`, `label` | Identity and the label shown in the UI. **Help text is not here:** it lives in `settings-text.ts` (`settingHelp[key]`, `sectionHelp[section]`) so it loads with the lazy Settings UI |
+| `group` | Optional sub-heading; consecutive entries with the same group share it (Appearance → Roundness, → Liquid metal) |
 | `control` | `segmented`, `select`, `toggle`, `range` (min/max/step/unit), `color` (swatches + hex, `null` = use the preset's colour), `checkboxes`, `date`, `time`, or `tabs` (exactly `count` distinct options in order; each slot is a select and picking a used option swaps) |
 | `default` | Default value |
 | `dependsOn: {key, is}` | Hidden when the condition isn't met |
-| `requires: 'webgl' \| 'chromium'` | On the setting or on individual options; unmet options show "(needs …)" |
+| `requires: 'webgl' \| 'webgl2' \| 'chromium'` | On the setting or on individual options; unmet options show "(needs …)". An unmet `webgl2` setting is shown but `inert` (the shader-only metal controls) |
 | `quick` / `quickLabel` | Appears in the drawer |
-| `apply` | A bundle patch applied on change; presets use it |
+| `apply(value, current)` | A patch written together with the value: presets (bundle), Roundness preset → radius, radius → matching preset |
+| `undo` | Show the "Applied … / Undo" toast (presets only; the radius slider must not stack toasts) |
 
 The object is checked with `satisfies { [K in SettingKey]: SettingDef<K> }`.
 
-**All 45 keys:**
-- `appearance.`: preset, colorMode, accent, background, textSize (90–120), density, radius
-  (0–20, default 0), monoUppercase, displayFont
+**All 64 keys:**
+- `appearance.`: preset, colorMode, accent, background, textSize (90–120), density,
+  monoUppercase, displayFont; **Roundness:** roundness (square / soft / rounded / very / pill /
+  custom, default square), radius (master, 0–40, default 0; 0–20 values from v1 stay valid),
+  radiusLink (default on), radiusNav (default pill), radiusCards / radiusButtons / radiusInputs /
+  radiusSheets / radiusHud (master or a preset, default master; shown when unlinked)
+- `metal.`: enabled (on), applyTo (tab / primary / floating, default tab), tint (silver / warm /
+  cool / accent), speed (idle 0.1–2, 0.6), hoverSpeed (0.1–3, 1), static (off). Section
+  appearance, group "Liquid metal"; speed, hoverSpeed and static `requires: 'webgl2'`
 - `background.`: type (solid / gradient / dots / animated / dither, **default `dither`**),
   color1–3, speed, grain, quality (auto / low / high), pauseHidden (default on), allow3dPhone
   (default off)
 - `glass.`: mode (off / blur / refraction / liquid, **default `refraction`**), blur, refraction,
-  tint, saturation, edge, applyTo (header / cards / buttons)
+  tint, saturation, edge, applyTo (header / navbar / cards / buttons, all on)
 - `hud.`: frame, corners, grid, caption, orb, orbStyle (dotted / liquid)
 - `nav.`: transition (reveal / wash / fade / none, **default `reveal`**), duration (300–1200 ms,
   default 650), softness (0–100 %, default 35), origin (press / center), bottomBar (default on),
   labels (default on), swipe (default off), tabs (exactly 4 `NavPage`s, default
-  today/week/plan/absences)
+  today/week/plan/absences), barStyle (floating / docked, default floating), barMargin (0–32,
+  16), barGap (0–32, 12), highlight (pill / underline), hideOnScroll (default off).
+  `dependsOn` chains: a setting is hidden when its parent is hidden (`isVisible` recurses).
 - `motion.`: mode (auto / reduced / full), speed
 - `sim.`: enabled, date, time
 - `diag.`: fps
@@ -239,7 +286,8 @@ The object is checked with `satisfies { [K in SettingKey]: SettingDef<K> }`.
 The six quick keys are preset, colorMode, accent, background.type, glass.mode and motion.mode.
 
 **Adding a setting:**
-1. Add the key to `Settings` and an entry to `schema`. The page and drawer pick it up.
+1. Add the key to `Settings` and an entry to `schema`, and its help text to `settings-text.ts`.
+   The page and drawer pick it up.
 2. Consume it in one of two ways:
    - Map it in `applyTheme()` to a CSS variable or `data-*` attribute, then style it in CSS.
      Prefer this for visual settings.
@@ -248,9 +296,14 @@ The six quick keys are preset, colorMode, accent, background.type, glass.mode an
 4. Add it to `tools/verify/settings-e2e.cjs`.
 
 **Store** (`lib/settings.ts`, `useSyncExternalStore`):
-- **Format:** `{ version: 1, values: {...} }` under `study-dashboard:settings:v1`.
-- **Load:** goes through `migrations` (v0 = a bare values map), then `coerce()` per key. An
-  invalid value falls back to its own default, never the whole file.
+- **Format:** `{ version: 2, values: {...} }` under `study-dashboard:settings:v1` (the key name
+  keeps its `v1`; the version lives inside).
+- **Load:** goes through `migrations`, then `coerce()` per key. An invalid value falls back to
+  its own default, never the whole file.
+  - v0 → v1: a bare values map.
+  - v1 → v2: new keys take their defaults; `glass.applyTo` gains `navbar` if it had `header`
+    (the tab bar used to borrow the header's glass); `appearance.roundness` is derived from the
+    saved radius (0/8/16 → square/soft/rounded, anything else → custom).
 - **Storage failures:** every read and write is in try/catch. If storage is blocked, settings
   live in memory and `useSettingsProblem()` shows a notice.
 - **Cross-tab sync:** via the `storage` event.
@@ -266,8 +319,8 @@ The six quick keys are preset, colorMode, accent, background.type, glass.mode an
 - Each preset has a dark and a light `Palette`: `{bg, ink, ink2, accent, ok, warn, alarm,
   focus, gradient[3], modules: 'hue' | 'mono'}`.
 - `presetBundles[id]` is applied when a preset is picked. It clears custom colours and sets
-  colorMode, radius, background type, glass mode and tint, grid, and orb style. colorMode then
-  picks the preset's dark or light palette.
+  colorMode, radius and roundness, background type, glass mode and tint, grid, and orb style.
+  colorMode then picks the preset's dark or light palette.
 - Only Midnight colours modules (`moduleHues`); the others use `ink2`.
 
 **Resolution** (`lib/theme.ts`): `resolve(settings, media)` returns what is actually used:
@@ -278,14 +331,18 @@ The six quick keys are preset, colorMode, accent, background.type, glass.mode an
   - `svg` (refraction) needs Chromium; otherwise it falls back to `blur`.
   - `liquid` needs WebGL; otherwise it falls back to `svg` or `blur`.
   - A `glassNote` explains any downgrade, and `glassOn` holds the per-target flags.
+  - `glassOn.navbar` is also off (solid bar) without `backdrop-filter`, at Background quality
+    Low, or with `prefers-reduced-transparency`.
+- **metal:** `on` per target, `live` (WebGL 2 and quality not Low) and `still` (Static or
+  reduced motion). The Settings note for it is computed in `SettingsPage.tsx`.
 - **background type in use:**
   - `animated` falls back to the static `gradient` on phones (unless allow3dPhone is on),
     without WebGL, or with reduced motion.
   - `dither` becomes a static stand-in without WebGL and holds still under reduced motion.
   - Also resolves `bgPaused` (tab hidden and pauseHidden on) and quality.
-- **contrast:** `contrastChecks()` lists ink, ink2 (on bg and raised), accent on bg, text on
-  accent, plus ink2 over the gradient's worst spot and on glass when a gradient is in use.
-  `autoFix()` binary-searches the fewest colour changes to reach AA.
+- **contrast** (`contrast.ts`, lazy): `contrastChecks()` lists ink, ink2 (on bg and raised),
+  accent on bg, text on accent, plus ink2 over the gradient's worst spot and on glass when a
+  gradient is in use. `autoFix()` binary-searches the fewest colour changes to reach AA.
 
 ## 7. Theming and visual language
 
@@ -294,20 +351,40 @@ It runs before the first render (`startTheme()` in `main.tsx`) and on every sett
 change. Components rarely read settings directly; CSS keys off these.
 
 - **Data attributes:** `data-mode` (dark/light), `data-preset`, `data-glass` (the *engine in
-  use*: off/blur/svg/liquid, not the setting value), `data-glass-header|cards|buttons`,
+  use*: off/blur/svg/liquid, not the setting value), `data-glass-header|navbar|cards|buttons`,
   `data-motion` (reduced/full), `data-density`, `data-mono-case`, `data-frame`,
-  `data-corners`, `data-grid`, `data-caption`, `data-bg` (the type in use).
+  `data-corners`, `data-grid`, `data-caption`, `data-bg` (the type in use), `data-tabbar`,
+  `data-tab-labels`, `data-bar` (floating/docked), `data-tab-highlight` (pill/underline).
+  Set elsewhere: `data-kb` (TabBar), `data-bar-hidden` (hide on scroll), `data-navigating`
+  (transition.ts), `data-vt` (View Transitions).
 - **Colour variables:** `--bg --raised --desk --ink --ink-2 --line --line-strong --accent
   --accent-ink --warn-ink --ok --warn --alarm --focus --g1..3 --dot --gridline`.
 - **Precomputed mixes** (use these instead of `color-mix`, see hard rule 10): `--g1-a85 --g1-a50
   --g2-a85 --glass-tint-liquid --scrim --ink-wash --accent-wash --accent-tint --m-<id>-tint
   --m-<id>-line`. Need a new mix? Add it in `applyTheme()`.
 - **Sizing and fonts:** `--text-scale` (html font-size), `--density` (0.72 or 1, scales
-  `--s1..--s7` and `--control-h`), `--r-lg/md/sm` (radius), `--font-display`,
-  `--display-weight`, `--display-tracking`.
+  `--s1..--s7` and `--control-h`), `--font-display`, `--display-weight`, `--display-tracking`.
+- **Radius tokens** (`radiusVars()` in theme.ts; all 0 at the default master radius, so the
+  default look is square). The old `--r-lg/md/sm` are gone.
+  - Scale from the master R: `--radius-xs/s/m/l/xl` = 0.25/0.45/0.7/1/1.4 × R, `--radius-full`
+    9999px. `--radius-mark` (0.25 R) for dots, swatches and progress bars.
+  - Groups (each from `groupShape()`: the master when linked or "Same as master", else its own
+    preset; Pill = 28 plus fully round controls): `--radius-card/-card-m/-card-s` (cards,
+    formula, notes, week blocks), `--radius-btn` (buttons, square buttons, chips, badges, nav
+    links), `--radius-input` / `--radius-area` (fields; multi-line fields cap at 16 in Pill) /
+    `--radius-check`, `--radius-sheet` / `--radius-toast` / `--radius-tip`, `--radius-hud`,
+    `--radius-nav` (the floating bar; linked = pill). `--radius-nav-px` clamps it to half the
+    bar height; `--radius-bracket` makes the corner brackets concentric with the frame.
+  - Nested: `max(0px, calc(outer - padding))` (segmented items, the frame's inner line, the tab
+    highlight, the metal fill, rows in the More panel).
+  - A rounded frame: `.hud-fill.tl/tr/bl/br` (desk-coloured, radial-masked) cover the mats'
+    square inside corners; the top bar's top corners follow the frame.
 - **Glass and motion:** `--glass-tint`, `--glass-tint-strong`, `--glass-blur`, `--glass-sat`,
   `--glass-edge`, `--glass-edge-soft`, `--grain`, `--motion-k` (0 when reduced, otherwise
   1/speed; multiplies `--dur`).
+- **Tab bar and metal:** `--bar-margin`, `--bar-gap`, `--bar-shadow`, `--navbar-tint` (auto-AA
+  tint), `--navbar-blur` (1.5× blur), `--navbar-sat` (+40 %), `--nav-pill`, `--nav-pill-line`,
+  `--metal-fill` (#111214), `--metal-ink` (#f3f3f0), `--metal-tint` (accent).
 - **`--tick`:** the checkbox tick, as an SVG data URI. It's a background image because
   html2canvas chokes on the `::after` with `content: ''`.
 
@@ -405,13 +482,26 @@ Reduced motion always becomes a 160 ms crossfade. Duration = `nav.duration / mot
   - Named glass (backdrop-filter) keeps its blur in Chromium 153 (tested).
 
 **Phone tab bar** (`nav/TabBar.tsx`, `nav.css`; shown when `media.phone && nav.bottomBar`;
-`<html data-tabbar>`).
-- **Bar:**
-  - fixed, `--tabbar-h` 64 px (56 px with labels off) plus `--safe-b`;
-  - glass = the header's GlassLayer target;
-  - z 46, above the mats.
-- **Bottom of the frame:** `--frame-bottom` on phones with the bar = bar + inset + a 30 px
-  caption strip. The floating buttons, toasts, drawer and `.shell` padding all key off it.
+`<html data-tabbar>`, style in `<html data-bar>`).
+- **Docked** (the phase-3 bar, pixel-identical): fixed full width, `--tabbar-h` 64 px (56 px
+  with labels off) plus `--safe-b`, `.tab-mark` indicator at the top of the tab.
+- **Floating** (default):
+  - inset `--bar-margin` from the sides and `--bar-gap` + `--safe-b` from the bottom, height
+    `--tabbar-h`, corners `--radius-nav-px`, `--bar-shadow`, 1 px edge, z 46;
+  - glass = its own `navbar` target with `strong` frost; tint `--navbar-tint`, which
+    `navbarTint()` raises to the lowest alpha where `--ink` stays ≥ 4.8:1 over pure white
+    (dark) / black (light) before blur. Labels and icons use `--ink`;
+  - `--frame-edge` (frame line and bottom mat) stays at `--frame` + `--safe-b`, so the page runs
+    behind the bar; `--frame-bottom` = bar space + caption chip, so content, toasts and the
+    drawer clear it;
+  - the caption is a chip above the bar; the floating buttons sit above it;
+  - the highlight: ONE `.tab-pill` (absolute, width = one column) moved by
+    `translateX(var(--tab-i) * 100%)`, transition `transform` only (instant with reduced
+    motion); its `.tab-pill-shape` is the accent pill (`--nav-pill`) or a 3 px underline, or
+    hosts the liquid-metal surface (§7b).
+- **Hide on scroll** (`nav.hideOnScroll`): `data-bar-hidden` after 24 px down, cleared after
+  8 px up, near the top/bottom, on page change, and while focus is in the bar. The caption and
+  floating buttons move down with it.
 - **Header:** `compact` drops the top nav, and the gear becomes the Quick settings button. The
   floating Quick settings button is hidden (`showQuick={false}`).
 - **Tabs:** `aria-current`, a `.tab-mark` indicator and a bold label. Re-tapping the active tab
@@ -423,7 +513,10 @@ Reduced motion always becomes a 160 ms crossfade. Duration = `nav.duration / mot
   It is ignored when it starts in an input, a dialog, the bar, or any element that scrolls
   sideways. Order = tabs, then the More pages except Settings.
 
-**More sheet** (`nav/MoreSheet.tsx`). A modal dialog:
+**More sheet** (`nav/MoreSheet.tsx`). With the floating bar it is a floating glass panel just
+above the bar (same margins and corners, `navbar` glass, rows spaced instead of ruled, the
+current page on the pill colour); docked keeps the bottom sheet. The list scrolls inside
+`.sheet-body` so the glass layer stays put. A modal dialog:
 - focus starts on the first link and is trapped;
 - Esc, the backdrop, the close button or a drag down (> 90 px or > 0.6 px/ms) close it with
   `'dismiss'`, and App returns focus to the More button;
@@ -432,6 +525,34 @@ Reduced motion always becomes a 160 ms crossfade. Duration = `nav.duration / mot
 
 **Safe areas.** `--safe-t/r/b/l` = `env(safe-area-inset-*, 0px)`. `--frame-t/-l/-r` and
 `--frame-bottom` include them. All four are 0 on desktops, so desktop geometry is unchanged.
+
+## 7b. Liquid metal (phase 4)
+
+`<LiquidMetalSurface target="tab|primary|floating" when>` (`components/metal/`, main bundle,
+tiny) renders `<span class="lm" data-state data-tint aria-hidden><span class="lm-rim"/><span
+class="lm-fill"/></span>` behind its host's content. Hosts: the tab highlight
+(`.tab-pill-shape`), `.btn-start`, Export/Import progress and settings (`primary`), the
+floating back-to-top / quick-settings buttons and the phone's Quick settings gear
+(`floating`). Hosts get `data-metal="on"`, `isolation: isolate`, `--lm-r` (their radius);
+`.lm` sits at z −1.
+- **The CSS rim is always painted** (`conic-gradient`, per tint). `data-state`: `css` (still
+  rim only), `live` (shader), `still` (one shader frame).
+- **Engine** (`metalEngine.ts`, lazy chunk, ~10 kB gz): `attach(el, rim, kind, params)`.
+  - Budget: `maxLive()` = 1 at ≤ 640 px, else 2. Priority tab 3 > floating 2 > primary 1;
+    visibility from an IntersectionObserver (120 px margin); `allocate()` runs once per frame.
+  - `new ShaderMount(rim, liquidMetalFragmentShader, uniforms, {low-power, no AA}, 0,
+    4200, minPixelRatio 1, maxPixelCount = w·h·1.5²)` (≤ 360 k px). The library pauses
+    off-screen and in hidden tabs; the engine sets speed 0 while `data-navigating`.
+  - A throw (no WebGL 2, compile error) or `webglcontextlost` marks the surface failed: CSS rim
+    for good.
+  - Speeds: idle `metal.speed`, hover/focus `metal.hoverSpeed`, press (pointerdown,
+    Enter/Space, or the pill's `transitionrun`) max(2.4, 2.4 × hover) for 320 ms. The reset
+    reads the live state when it fires (the reference's stale closure is fixed).
+- **Never** set `outline: none` on hosts; never use `preserve-3d`/`translateZ`; never inject
+  styles: the library would, unless `style[data-paper-shader]` exists (the empty one in
+  index.html).
+- Label contrast: `--metal-ink` on `--metal-fill` (≈ 17:1, measured on rendered pixels over 6
+  frames by `metal-e2e.cjs`).
 
 ## 8. Progress data (`lib/store.ts`), unchanged since phase 1
 
@@ -461,8 +582,11 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
   touch devices).
 - After a page change, focus moves to the page's `<h1>` and `#route-announcer` (polite live
   region) says "<Page> page".
-- Tab bar: labelled `<nav>`, targets ≥ 48 px, active tab = indicator bar + bold label +
-  `aria-current` (never colour alone); labels off keeps accessible names.
+- Tab bar: labelled `<nav>`, targets ≥ 48 px, active tab = highlight shape (pill, underline,
+  or the docked indicator bar) + bold label + `aria-current` (never colour alone); labels off
+  keeps accessible names. Bar labels meet AA over the worst case behind the glass.
+- Liquid-metal controls are real `<button>`s with the normal focus ring, driven by pointer,
+  focus and keyboard (no mouse-only handlers); the metal layer is `aria-hidden`.
 - Toasts use `role=status`; the contrast summary is `aria-live`.
 - The Week grid has a screen-reader list version.
 - Status is never colour-only: icons and words too.
@@ -470,18 +594,24 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
 
 ## 11. Verifying a change: do this before calling it done
 
-1. `npm run lint`, then `npm run build`: no errors. Check the first-load JS (hard rule 2).
+1. `npm run lint`, then `npm run build`: no errors. Check the first-load JS (hard rule 2) with
+   `node tools/verify/bundle-size.cjs metalEngine`.
 2. Serve the **production build**: `npm run preview -- --port 5173 --strictPort`. Prefer it to
    the dev server for screenshots (see trap 8 in §12).
 3. One-time setup for the checks: `npm i --no-save playwright pngjs && npx playwright install
    chromium`.
-4. `node tools/verify/settings-e2e.cjs` runs 61 checks: every control applies live without a
-   reload, persistence, cross-tab sync, export/import, corrupt and partial imports, migration,
-   reset with undo, the drawer, blocked storage, the progress key untouched, no console errors.
+4. `node tools/verify/settings-e2e.cjs` (74 checks): every control applies live without a
+   reload, roundness presets/Pill/overrides, persistence, cross-tab sync, export/import, corrupt
+   and partial imports, both migrations, reset with undo, the drawer, blocked storage, the
+   progress key untouched, no console errors. `nav-e2e.cjs` (67) covers the bar, the panel and
+   the transitions; `metal-e2e.cjs` (21) the liquid metal.
 5. `node tools/verify/matrix.cjs verify-out/matrix all` takes 78 screenshots (5 presets × 7
    pages × 1440/390 px, plus 4 glass modes × 2 widths). It measures every visible text run
    against the **rendered** background pixels and flags anything below AA, plus any console
-   errors. Use `only mono-noir:today:390 glass-liquid:today:1440 …` for a subset.
+   errors. Use `only mono-noir:today:390 glass-liquid:today:1440 noir-pill:plan:390:sheet …`
+   for a subset. `phone` = Mono Noir and Light × 7 pages × 390/360 px; `variants` = docked,
+   roundness, highlight, glass modes, metal (live / CSS / reduced / all targets) and worst-case
+   white/black blocks injected right behind the bar in every preset (also at tint 20 %).
    `python3 tools/verify/sheets.py verify-out/matrix verify-out/sheets` makes contact sheets.
 6. Look at the screenshots. The numbers don't catch layout breakage.
 
@@ -491,7 +621,8 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
 - Before each screenshot, the matrix fakes a hidden tab so the 3D loops pause; software
   rendering of the animated gradient under many blurred cards is otherwise too slow to capture.
 - The measurement only counts text inside the HUD frame window, skips text covered by the
-  sticky header (via `elementFromPoint`), and ignores the outer 2 px of each line box.
+  sticky header, the bar (via `elementFromPoint`) or the caption chip (by rectangle: it ignores
+  pointer events), and ignores the outer 2 px of each line box.
 - All tests run with simulated time Wed 2026-11-18 14:40 and the progress seed in
   `tools/verify/seed.json`.
 
@@ -575,6 +706,26 @@ Earlier, at the end of phase 2: 78/78 matrix shots, 17,890 text runs, 0 below AA
       every page fits 390 px.
 22. **Playwright `isMobile` matters.** Without it, overflow only adds a scrollbar and the trap
     above stays hidden. Phone checks use `isMobile` + `hasTouch` + the CDP safe-area override.
+23. **Lightning CSS drops `backdrop-filter`.** Vite's minifier keeps only the `-webkit-` copy
+    when a rule says `backdrop-filter: X; -webkit-backdrop-filter: X` (in that order) and X
+    uses `var()`. Chromium ignores the prefixed one, so the blur silently vanished in
+    production while `npm run dev` looked fine. Write the unprefixed property only; the build
+    adds the prefix (hard rule 16). Check with `grep -o '[^}]*backdrop-filter[^}]*}'
+    dist/assets/*.css`.
+24. **`.btn > :not(.lg-layer, .lm)` makes children `position: relative`.** A new absolutely
+    positioned layer inside `.btn` must be excluded there, or it collapses to 0×0 (the metal
+    rim did, which would have been an empty button).
+25. **Paper Shaders injects a `<style>` into `<head>`** unless `style[data-paper-shader]` exists
+    somewhere. The empty one in index.html must stay; its rules are in metal.css. The library
+    also puts `data-paper-shader` and a `paperShaderMount` property on the rim element (tests use
+    `rim.paperShaderMount.getCurrentFrame()` / `.currentSpeed`).
+26. **Shader budget in tests:** floating buttons outrank primary buttons, so on a desktop page
+    with all targets on, scrolling (which shows back-to-top) moves both canvases to the floating
+    buttons. And a real click on Start starts the block (the button disappears); hover/press
+    tests dispatch pointer events instead.
+27. **Long tab labels overflow their column** ("Resources", or "Absences" at 320–360 px). The
+    highlight reads `--tab-label-w` and grows past the column; otherwise the metal pill's light
+    label lands on the bright rim (it measured 2.1:1 before the fix).
 
 ## 13. Decisions taken (and why)
 
@@ -607,6 +758,27 @@ Earlier, at the end of phase 2: 78/78 matrix shots, 17,890 text runs, 0 below AA
 - The page heading takes focus after navigation with no visible ring; the announcer also
   speaks.
 
+**Phase 4 (floating bar, roundness, liquid metal):**
+- The floating bar is phones-only (≤ 640 px), like the tab bar; the top bar is unchanged.
+  "Phones and desktop" for the metal pill was read as: wherever that pill exists, which
+  includes desktop windows narrower than 641 px. At 1440 px nothing changes at defaults.
+- Docked = the phase-3 bar exactly (verified pixel-identical), so its highlight setting
+  doesn't apply; the pill/underline choice is for the floating bar.
+- With "Link all to master" on, the floating bar stays a pill (the spec's default), and every
+  other group follows the master. The master radius default stays 0, so the app looks the same.
+- Pill = 28 px master plus fully round buttons, chips and fields; multi-line fields cap at 16 px;
+  checkboxes cap at 6 px (a round checkbox reads as a radio).
+- Bar contrast: labels use `--ink` (not `--ink-2`), which lets the tint stay near 55–67 % while
+  keeping AA over pure white/black. A higher setting is kept.
+- The metal fill is opaque dark in both colour modes (a light label on it is AA by
+  construction); in Light it reads as a dark selected chip.
+- `@paper-design/shaders` 0.0.81 rather than 0.0.82: the newest release then was ten days old.
+- The shader-only metal settings are shown but switched off (`inert`) without WebGL 2, with a
+  note; enable, apply-to and tint stay usable because the CSS rim honours them.
+- The Lightning CSS blur bug (trap 23) is fixed for the new bar in its own commits; the older
+  rules (frosted-blur header/buttons and glass cards) are fixed in a separate, last commit so it
+  can be dropped if the unblurred look is preferred.
+
 ## 14. History
 
 - **Phase 1:** built the app from the plan with the original stack (ShaderGradient background,
@@ -627,6 +799,15 @@ Earlier, at the end of phase 2: 78/78 matrix shots, 17,890 text runs, 0 below AA
   - the Navigation settings section (45 keys in all);
   - safe-area tokens;
   - verification scripts for navigation, transitions and desktop before/after.
+- **Phase 4 (same branch, on top of 6b7ecb6):**
+  - roundness tokens for every corner, Appearance → Roundness (presets, link, six group
+    overrides), settings v2 migration;
+  - the floating glass tab bar with a sliding highlight, auto-AA tint, solid fallbacks, the
+    floating "More" panel, hide on scroll, five Navigation settings;
+  - `<LiquidMetalSurface>` with `@paper-design/shaders` (lazy), its budget and fallbacks, and
+    Appearance → Liquid metal (64 keys in all);
+  - help text, the contrast guard and settings file I/O moved to lazy chunks;
+  - `metal-e2e.cjs`, `bundle-size.cjs`, matrix `phone`/`variants` modes.
 
 ## 15. Known limits
 
@@ -641,7 +822,9 @@ See README "Limits":
 
 - page transitions and safe areas are verified only in headless Chromium (Safari and Firefox
   untested); the disc mask repaints each frame (GPU, not pure compositing);
-- a tap during a transition lands a frame late (skip + replay).
+- a tap during a transition lands a frame late (skip + replay);
+- the floating bar's blur and the metal shader are unverified on real phones (GPU cost,
+  battery, smoothness) and in Safari/Firefox; only 1 shader canvas runs on phones.
 
 Not yet built: installable PWA (manifest, icons, offline service worker) and any
 sync between devices (data is per browser, moved by export/import).
