@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { exportJSON, getState, ImportError, parseBackup, replaceState } from '../lib/store'
 import { useToday } from '../lib/env'
 import { showToast } from '../lib/toast'
+import { SyncLine } from './Extras'
 import { LiquidMetalSurface } from './metal/LiquidMetalSurface'
 import { useMetalOn } from './metal/useMetalOn'
 
@@ -49,6 +50,7 @@ export function BackupButtons() {
         aria-hidden="true"
         onChange={(e) => onFile(e.target.files?.[0])}
       />
+      <SyncLine />
     </div>
   )
 }

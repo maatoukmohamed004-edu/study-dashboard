@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { moduleById, resources, resourcesIntro, type ModuleId } from '../data/plan'
 import { Rich } from '../components/Rich'
+import { UserResources } from '../components/Extras'
 import { Hero, StatusStrip } from '../components/ui/Hud'
 
 const filterable = resources.map((r) => r.module)
@@ -40,6 +41,8 @@ export function ResourcesPage({ filter }: { filter: string | null }) {
         }
         title="Resources"
       />
+
+      <UserResources key={active ?? 'all'} active={active} />
 
       <div className="section">
         <div className="section-head">
@@ -99,6 +102,7 @@ export function ResourcesPage({ filter }: { filter: string | null }) {
 
         <p className="res-foot">{resourcesIntro.footer}</p>
       </div>
+
     </div>
   )
 }
