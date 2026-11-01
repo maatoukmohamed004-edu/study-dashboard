@@ -46,9 +46,25 @@
   --s7: calc(48px * var(--density));
   --control-h: calc(32px + 8px * var(--density));
 
-  --r-sm: 0px;
-  --r-md: 0px;
-  --r-lg: 0px;
+  /* Corner radii: real values come from theme.ts (radiusVars); these are the square defaults. */
+  --radius-xs: 0px;
+  --radius-s: 0px;
+  --radius-m: 0px;
+  --radius-l: 0px;
+  --radius-xl: 0px;
+  --radius-full: 9999px;
+  --radius-card: 0px;
+  --radius-card-m: 0px;
+  --radius-card-s: 0px;
+  --radius-btn: 0px;
+  --radius-input: 0px;
+  --radius-check: 0px;
+  --radius-sheet: 0px;
+  --radius-toast: 0px;
+  --radius-tip: 0px;
+  --radius-hud: 0px;
+  --radius-mark: 0px;
+  --radius-nav: 9999px;
 
   /* HUD geometry. Safe-area insets (notches, home indicator; index.html sets viewport-fit=cover)
      are 0 on desktops, so the frame there is exactly --frame / --frame-bottom. */
@@ -61,6 +77,11 @@
   --frame-r: calc(var(--frame) + var(--safe-r));
   --frame-l: calc(var(--frame) + var(--safe-l));
   --frame-bottom: calc(44px + var(--safe-b));
+  /* Where the frame's bottom line and the bottom mat end. Same as --frame-bottom except with the
+     floating tab bar, where content scrolls behind the bar and the chrome clears it instead. */
+  --frame-edge: var(--frame-bottom);
+  /* Corner brackets sit outside the frame corner, so their curve is concentric with it (0 when square). */
+  --radius-bracket: min(calc(var(--radius-hud) * 1000), calc(var(--radius-hud) + var(--frame) - 5px));
   --gutter: clamp(16px, 3vw, 40px);
   --content: 1240px;
 
@@ -197,6 +218,7 @@ a:hover {
   color: var(--bg);
   font-family: var(--font-mono);
   font-weight: 700;
+  border-radius: var(--radius-btn);
 }
 
 .skip-link:focus {

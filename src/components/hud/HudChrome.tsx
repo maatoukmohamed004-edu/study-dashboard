@@ -17,6 +17,10 @@ export function HudChrome() {
       <div className="hud-mat hud-mat-bottom" />
       <div className="hud-mat hud-mat-left" />
       <div className="hud-mat hud-mat-right" />
+      <div className="hud-fill tl" />
+      <div className="hud-fill tr" />
+      <div className="hud-fill bl" />
+      <div className="hud-fill br" />
       <div className="hud-frame" />
       <span className="hud-corner tl" />
       <span className="hud-corner tr" />

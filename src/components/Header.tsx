@@ -75,7 +75,7 @@ export function Header({
     // In liquid mode, "glass-container" makes html2canvas leave the header out of its page snapshot.
     <header className={`header${r.glass === 'liquid' ? ' glass-container' : ''}`}>
       <div className="topbar">
-        <GlassLayer target="header" radius={0} bezel={16} />
+        <GlassLayer target="header" bezel={16} />
         <div className="tb-left">
           <ProgressOrb ratio={stats.ratio ?? 0} />
           <div className="tb-id">

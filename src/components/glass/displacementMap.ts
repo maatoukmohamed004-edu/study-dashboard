@@ -2,13 +2,18 @@
  * Builds a displacement map for an SVG feDisplacementMap "lens" effect on a
  * rounded rectangle: near the rim, pixels are pulled from further inside,
  * which reads as thick curved glass. Red = x offset, green = y offset.
+ * `radius` is one value or the four corners [top-left, top-right, bottom-right, bottom-left],
+ * as the host's computed border-radius gives them (a pill passes 9999 and is clamped here).
  */
 const cache = new Map<string, string>()
 
-export function displacementMap(width: number, height: number, radius: number, bezel: number): string {
+export type Corners = [number, number, number, number]
+
+export function displacementMap(width: number, height: number, radius: number | Corners, bezel: number): string {
   const w = Math.max(2, Math.round(width))
   const h = Math.max(2, Math.round(height))
-  const key = `${w}x${h}r${radius}b${bezel}`
+  const radii = (typeof radius === 'number' ? [radius, radius, radius, radius] : radius).map((v) => Math.round(Math.max(0, Math.min(v, w / 2, h / 2)))) as Corners
+  const key = `${w}x${h}r${radii.join(',')}b${bezel}`
   const hit = cache.get(key)
   if (hit) return hit
 
@@ -21,7 +26,6 @@ export function displacementMap(width: number, height: number, radius: number, b
   const ctx = canvas.getContext('2d')
   if (!ctx) return ''
   const img = ctx.createImageData(cw, ch)
-  const r = Math.min(radius, w / 2, h / 2)
   const hw = w / 2
   const hh = h / 2
 
@@ -31,6 +35,7 @@ export function displacementMap(width: number, height: number, radius: number, b
       const py = (y + 0.5) / scale
       const dx = px - hw
       const dy = py - hh
+      const r = dy < 0 ? (dx < 0 ? radii[0] : radii[1]) : dx < 0 ? radii[3] : radii[2]
       // Signed distance to the rounded rectangle (negative inside).
       const qx = Math.abs(dx) - (hw - r)
       const qy = Math.abs(dy) - (hh - r)

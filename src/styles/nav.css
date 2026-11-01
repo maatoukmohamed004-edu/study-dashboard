@@ -187,7 +187,7 @@
   padding: 4px calc(8px + var(--safe-r)) calc(12px + var(--safe-b)) calc(8px + var(--safe-l));
   background: var(--bg);
   border-top: 1px solid var(--line-strong);
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.4);
   touch-action: none;
   animation: sheet-in calc(var(--dur) * 1.8) cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -204,7 +204,7 @@
   width: 40px;
   height: 4px;
   margin: 6px auto 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-full);
   background: var(--line-strong);
 }
 

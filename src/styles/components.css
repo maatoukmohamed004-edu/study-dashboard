@@ -8,7 +8,7 @@
   min-height: var(--control-h);
   padding: 0 var(--s4);
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
+  border-radius: var(--radius-btn);
   background: transparent;
   color: var(--ink);
   font-family: var(--font-mono);
@@ -110,7 +110,7 @@
   min-height: var(--control-h);
   padding: 6px 10px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
+  border-radius: var(--radius-input);
   background: var(--bg);
   color: var(--ink);
 }
@@ -150,7 +150,7 @@ select.input {
   height: 20px;
   margin: 0;
   border: 1.5px solid var(--ink-2);
-  border-radius: var(--r-sm);
+  border-radius: var(--radius-check);
   background: var(--bg);
   cursor: pointer;
 }
@@ -176,7 +176,7 @@ select.input {
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
+  border-radius: var(--radius-input);
   background: var(--bg);
 }
 
@@ -184,7 +184,8 @@ select.input {
   min-height: 30px;
   padding: 0 10px;
   border: 0;
-  border-radius: calc(var(--r-sm) * 0.6);
+  /* Nested: the switch's radius minus its border and padding (1 + 2 px). */
+  border-radius: max(0px, calc(var(--radius-input) - 3px));
   background: transparent;
   color: var(--ink-2);
   font-family: var(--font-mono);
@@ -244,7 +245,7 @@ select.input {
   margin-left: 8px;
   padding: 1px 6px;
   border: 1px solid var(--ink);
-  border-radius: var(--r-sm);
+  border-radius: var(--radius-btn);
   color: var(--ink);
   vertical-align: 0.15em;
 }
@@ -336,6 +337,7 @@ select.input {
   position: relative;
   height: 1px;
   margin: 2px 0 6px;
+  border-radius: var(--radius-mark);
   background: var(--line-strong);
 }
 
@@ -345,6 +347,7 @@ select.input {
   top: -1px;
   height: 3px;
   width: calc(var(--p, 0) * 100%);
+  border-radius: var(--radius-mark);
   background: var(--accent);
   transition: width calc(600ms * var(--motion-k)) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -485,7 +488,7 @@ select.input {
   position: relative;
   padding: var(--s5);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: var(--radius-card);
   background: var(--raised);
 }
 
@@ -551,7 +554,7 @@ select.input {
   max-width: 100%;
   padding: 10px 16px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
+  border-radius: var(--radius-card-m);
   font-size: 1.25rem;
 }
 

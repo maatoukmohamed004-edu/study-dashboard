@@ -198,13 +198,53 @@ export function useResolved(): Resolved {
   return useSyncExternalStore(subscribeBoth, getResolved)
 }
 
+// ─── Roundness ──────────────────────────────────────────────────────────────
+
+const px = (n: number) => `${Math.max(0, Math.round(n))}px`
+const FULL = '9999px'
+
+/**
+ * Corner radii as CSS custom properties, all derived from the master radius (Appearance →
+ * Corner radius). Stylesheets use only these; nothing else hard-codes a corner.
+ * - Scale: --radius-xs/s/m/l/xl = 0.25/0.45/0.7/1/1.4 × master, plus --radius-full (pill/circle).
+ * - Groups: one variable per kind of surface, so a group can be overridden on its own.
+ * - Nested surfaces subtract their parent's padding in CSS: max(0px, calc(outer - padding)).
+ */
+export function radiusVars(s: Settings): Record<string, string> {
+  const R = s['appearance.radius']
+  return {
+    '--radius-xs': px(R * 0.25),
+    '--radius-s': px(R * 0.45),
+    '--radius-m': px(R * 0.7),
+    '--radius-l': px(R),
+    '--radius-xl': px(R * 1.4),
+    '--radius-full': FULL,
+    // Cards & panels: cards, chart frames, notes, the week's blocks
+    '--radius-card': px(R),
+    '--radius-card-m': px(R * 0.7),
+    '--radius-card-s': px(R * 0.45),
+    // Buttons & chips (square icon buttons, tags, badges)
+    '--radius-btn': px(R * 0.45),
+    // Inputs: text fields, selects, segmented switches, checkboxes
+    '--radius-input': px(R * 0.45),
+    '--radius-check': px(Math.min(R * 0.45, 6)),
+    // Sheets & dialogs: the quick drawer, the "More" sheet, toasts, tooltips
+    '--radius-sheet': px(R),
+    '--radius-toast': px(R * 0.7),
+    '--radius-tip': px(R * 0.45),
+    // HUD frame and its corner brackets
+    '--radius-hud': px(R),
+    // Small marks (dots, swatches, progress bars): follow the master
+    '--radius-mark': px(R * 0.25),
+  }
+}
+
 // ─── Apply to the document ──────────────────────────────────────────────────
 
 export function applyTheme(s: Settings, r: Resolved) {
   const root = document.documentElement
   const p = r.palette
   const font = DISPLAY_FONTS[s['appearance.displayFont']]
-  const radius = s['appearance.radius']
   const vars: Record<string, string> = {
     '--bg': p.bg,
     '--raised': p.raised,
@@ -228,9 +268,7 @@ export function applyTheme(s: Settings, r: Resolved) {
     '--gridline': rgba(p.ink, r.mode === 'dark' ? 0.045 : 0.06),
     '--text-scale': String(s['appearance.textSize'] / 100),
     '--density': s['appearance.density'] === 'compact' ? '0.72' : '1',
-    '--r-lg': `${radius}px`,
-    '--r-md': `${Math.round(radius * 0.7)}px`,
-    '--r-sm': `${Math.round(radius * 0.45)}px`,
+    ...radiusVars(s),
     '--font-display': font.family,
     '--display-weight': String(font.weight),
     '--display-tracking': font.tracking,
