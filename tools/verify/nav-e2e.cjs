@@ -72,6 +72,9 @@ async function swipe(cdp, from, to) {
       topNav: !!document.querySelector('.tb-nav'),
       padBottom: getComputedStyle(nav).paddingBottom,
       height: nav.getBoundingClientRect().height,
+      box: (({ left, right, bottom }) => ({ left, right, bottom }))(nav.getBoundingClientRect()),
+      radius: getComputedStyle(nav).borderTopLeftRadius,
+      style: document.documentElement.dataset.bar,
     };
   });
   ok('Tab bar is a labelled <nav>', bar.label === 'Pages', bar.label);
@@ -79,14 +82,17 @@ async function swipe(cdp, from, to) {
   ok('Absences is one tap away by default', bar.names.includes('Absences'));
   ok('Every slot is at least 48×48 px', bar.sizes.every(([w, h]) => w >= 48 && h >= 48), bar.sizes.map((s) => s.join('×')).join(' '));
   ok('Top bar has no navigation on phones', !bar.topNav);
-  ok('Bar is padded by the bottom safe-area inset', bar.padBottom === '34px' && Math.round(bar.height) === 64 + 34, `padding ${bar.padBottom}, height ${bar.height}`);
+  // Default floating bar: 16 px from the sides, 12 px + the 34 px home-indicator inset from the bottom, a pill.
+  ok('Floating bar: inset 16 px, lifted by 12 px + the safe-area inset, pill corners', bar.style === 'floating' && Math.round(bar.box.left) === 16 && Math.round(bar.box.right) === 390 - 16 && Math.round(bar.box.bottom) === 844 - 12 - 34 && Math.round(bar.height) === 64 && parseFloat(bar.radius) >= 32, JSON.stringify({ ...bar.box, h: bar.height, r: bar.radius }));
   const gear = await rect(page, '.tb-gear');
   ok('Top gear is a 48 px target and opens Quick settings', gear.w >= 48 && gear.h >= 48 && (await page.getAttribute('.tb-gear', 'aria-label')) === 'Quick settings', `${gear.w}×${gear.h}`);
   const active = await page.evaluate(() => {
     const a = document.querySelector('.tab[aria-current="page"]');
-    return a && { name: a.textContent.trim(), mark: getComputedStyle(a.querySelector('.tab-mark')).opacity, weight: getComputedStyle(a.querySelector('.tab-label')).fontWeight };
+    const pill = document.querySelector('.tab-pill-shape').getBoundingClientRect();
+    const t = a.getBoundingClientRect();
+    return a && { name: a.textContent.trim(), pillOffset: Math.round(Math.abs(pill.left + pill.width / 2 - (t.left + t.width / 2))), pillH: Math.round(pill.height), weight: getComputedStyle(a.querySelector('.tab-label')).fontWeight };
   });
-  ok('Active tab: aria-current + indicator bar + bold label', active?.name === 'Today' && active.mark === '1' && Number(active.weight) >= 700, JSON.stringify(active));
+  ok('Active tab: aria-current + highlight pill behind it + bold label', active?.name === 'Today' && active.pillOffset <= 1 && active.pillH >= 40 && Number(active.weight) >= 700, JSON.stringify(active));
 
   // Nothing hides behind the bar
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
@@ -244,6 +250,85 @@ async function swipe(cdp, from, to) {
   await swipe(cdp, { x: scroller.x + scroller.width - 20, y: scroller.y + 40 }, { x: scroller.x + 20, y: scroller.y + 45 });
   await settle(page);
   ok(`Swipe inside a sideways-scrolling area is ignored (${scroller.real ? 'page scroller' : 'test scroller'})`, (await page.evaluate(() => location.hash)) === '#/today');
+  await ctx.close();
+
+  // ── Phone, floating bar details ─────────────────────────────────────────
+  ({ ctx, page, cdp } = await open(browser));
+  const geo = await page.evaluate(() => {
+    const bar = document.querySelector('.tabbar').getBoundingClientRect();
+    const frame = document.querySelector('.hud-frame').getBoundingClientRect();
+    const pill = getComputedStyle(document.querySelector('.tab-pill'));
+    const glass = document.querySelector('.tabbar .lg-layer');
+    return { barTop: bar.top, barBottom: bar.bottom, frameBottom: frame.bottom, trans: pill.transitionProperty, glass: !!glass, filter: glass && getComputedStyle(glass).backdropFilter, vt: getComputedStyle(document.querySelector('.tabbar')).viewTransitionName };
+  });
+  ok('Content runs behind the floating bar (the frame ends below it)', geo.frameBottom > geo.barBottom, `frame ${Math.round(geo.frameBottom)} > bar ${Math.round(geo.barBottom)}`);
+  ok('Bar glass is on by default (refraction filter)', geo.glass && /url\("?#/.test(geo.filter || ''), geo.filter);
+  ok('The highlight animates with transform only', geo.trans === 'transform', geo.trans);
+  const mapW = () => page.evaluate(() => document.querySelector('.tabbar feImage')?.getAttribute('width'));
+  const w390 = await mapW();
+  await page.setViewportSize({ width: 360, height: 780 });
+  await settle(page, 600);
+  const w360 = await mapW();
+  ok('Refraction map is rebuilt for the bar’s real size on resize', w390 === String(390 - 32 - 2) && w360 === String(360 - 32 - 2), `${w390} → ${w360}`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page, 400);
+  await page.tap('.tab[href="#/week"]');
+  await settle(page);
+  const slid = await page.evaluate(() => {
+    const pill = document.querySelector('.tab-pill-shape').getBoundingClientRect();
+    const t = document.querySelector('.tab[aria-current="page"]').getBoundingClientRect();
+    return { name: document.querySelector('.tab[aria-current="page"]').textContent.trim(), off: Math.round(Math.abs(pill.left + pill.width / 2 - (t.left + t.width / 2))), one: document.querySelectorAll('.tab-pill').length };
+  });
+  ok('The one highlight slides to the new tab', slid.name === 'Week' && slid.off <= 1 && slid.one === 1, JSON.stringify(slid));
+  await page.tap('.tab-more');
+  await page.waitForSelector('#more-sheet');
+  await settle(page, 600);
+  const panel = await page.evaluate(() => {
+    const s = document.getElementById('more-sheet').getBoundingClientRect();
+    const b = document.querySelector('.tabbar').getBoundingClientRect();
+    return { left: s.left, right: s.right, gap: b.top - s.bottom, r: getComputedStyle(document.getElementById('more-sheet')).borderTopLeftRadius, glass: !!document.querySelector('#more-sheet .lg-layer') };
+  });
+  ok('More is a floating glass panel above the bar, same corners', Math.round(panel.left) === 16 && Math.round(panel.right) === 374 && panel.gap >= 7 && panel.r === '32px' && panel.glass, JSON.stringify(panel));
+  await page.keyboard.press('Escape');
+  await settle(page, 400);
+  await ctx.close();
+
+  ({ ctx, page } = await open(browser, { settings: { 'nav.hideOnScroll': true } }));
+  const hidden = async () => page.evaluate(() => ({ flag: document.documentElement.dataset.barHidden || '', y: document.querySelector('.tabbar').getBoundingClientRect().top }));
+  const shown0 = await hidden();
+  for (let i = 0; i < 6; i++) {
+    await page.mouse.wheel(0, 120);
+    await page.waitForTimeout(80);
+  }
+  await settle(page, 500);
+  const down = await hidden();
+  await page.mouse.wheel(0, -60);
+  await settle(page, 500);
+  const up = await hidden();
+  ok('Hide on scroll: scrolling down slides the bar away, scrolling up brings it back', !shown0.flag && down.flag === 'true' && down.y > 844 && !up.flag && Math.round(up.y) === Math.round(shown0.y), JSON.stringify({ shown0, down, up }));
+  await ctx.close();
+
+  ({ ctx, page } = await open(browser, { settings: { 'nav.barStyle': 'docked' } }));
+  const docked = await page.evaluate(() => {
+    const nav = document.querySelector('nav.tabbar');
+    const r = nav.getBoundingClientRect();
+    const a = document.querySelector('.tab[aria-current="page"]');
+    return { pad: getComputedStyle(nav).paddingBottom, h: r.height, left: r.left, bottom: r.bottom, mark: getComputedStyle(a.querySelector('.tab-mark')).opacity, pill: getComputedStyle(document.querySelector('.tab-pill')).display };
+  });
+  ok('Docked: full-width bar padded by the safe-area inset, indicator line, no pill', docked.pad === '34px' && Math.round(docked.h) === 98 && docked.left === 0 && Math.round(docked.bottom) === 844 && docked.mark === '1' && docked.pill === 'none', JSON.stringify(docked));
+  await ctx.close();
+
+  ({ ctx, page } = await open(browser, { settings: { 'nav.barMargin': 0, 'nav.barGap': 0, 'nav.highlight': 'underline' } }));
+  const tight = await page.evaluate(() => {
+    const r = document.querySelector('nav.tabbar').getBoundingClientRect();
+    return { left: r.left, right: r.right, bottom: r.bottom, line: Math.round(document.querySelector('.tab-pill-shape').getBoundingClientRect().height) };
+  });
+  ok('Side margin 0 and bottom gap 0 apply; Underline highlight is a 3 px line', tight.left === 0 && tight.right === 390 && Math.round(tight.bottom) === 844 - 34 && tight.line === 3, JSON.stringify(tight));
+  await ctx.close();
+
+  ({ ctx, page } = await open(browser, { reduced: true }));
+  const rm = await page.evaluate(() => getComputedStyle(document.querySelector('.tab-pill')).transitionDuration);
+  ok('Reduced motion: the highlight jumps (no slide)', parseFloat(rm) < 0.01, rm);
   await ctx.close();
 
   // ── Phone, other settings ───────────────────────────────────────────────

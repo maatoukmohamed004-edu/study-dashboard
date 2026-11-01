@@ -22,6 +22,8 @@ export type OrbStyle = 'dotted' | 'liquid'
 export type MotionMode = 'auto' | 'reduced' | 'full'
 export type NavTransition = 'reveal' | 'wash' | 'fade' | 'none'
 export type NavOrigin = 'press' | 'center'
+export type BarStyle = 'floating' | 'docked'
+export type TabHighlight = 'pill' | 'underline'
 /** Appearance → Roundness presets; 'custom' = the master slider is at another value. */
 export type Roundness = 'square' | 'soft' | 'rounded' | 'very' | 'pill' | 'custom'
 /** Per-group override when "Link all to master" is off. */
@@ -83,6 +85,14 @@ export interface Settings {
   'nav.bottomBar': boolean
   'nav.labels': boolean
   'nav.swipe': boolean
+  /** Floating glass pill, or the full-width bar docked to the bottom edge. */
+  'nav.barStyle': BarStyle
+  /** Floating bar: gap to the left and right screen edges, px. */
+  'nav.barMargin': number
+  /** Floating bar: gap above the bottom edge (plus the home-indicator inset), px. */
+  'nav.barGap': number
+  'nav.highlight': TabHighlight
+  'nav.hideOnScroll': boolean
   /** Exactly four pages, in tab order; the rest go to "More". */
   'nav.tabs': NavPage[]
   'sim.enabled': boolean
@@ -102,7 +112,7 @@ export type SectionId = 'appearance' | 'background' | 'glass' | 'hud' | 'navigat
 export const sections: { id: SectionId; label: string; description: string }[] = [
   { id: 'appearance', label: 'Appearance', description: 'Preset, colours, type and shape.' },
   { id: 'background', label: 'Background', description: 'What sits behind the pages, and how hard the 3D works.' },
-  { id: 'glass', label: 'Glass', description: 'Frosted and refracting surfaces on the header, cards and buttons.' },
+  { id: 'glass', label: 'Glass', description: 'Frosted and refracting surfaces on the header, the phone tab bar, cards and buttons.' },
   { id: 'hud', label: 'HUD & layout', description: 'Frame, brackets, grid, caption and the header orb.' },
   { id: 'navigation', label: 'Navigation', description: 'The page-change animation, and the tab bar on phones.' },
   { id: 'motion', label: 'Motion', description: 'How much moves, and how fast.' },
@@ -669,6 +679,66 @@ export const schema = {
     section: 'navigation',
     label: 'Swipe between pages',
     description: 'Swipe left or right to move between tabs. Ignored inside areas that scroll sideways.',
+    control: 'toggle',
+    default: false,
+    dependsOn: { key: 'nav.bottomBar', is: [true] },
+  },
+  'nav.barStyle': {
+    key: 'nav.barStyle',
+    section: 'navigation',
+    label: 'Tab bar style',
+    description: 'Floating: a glass pill above the bottom edge, with the page scrolling behind it. Docked: the full-width bar along the bottom.',
+    control: 'segmented',
+    options: [
+      { value: 'floating', label: 'Floating' },
+      { value: 'docked', label: 'Docked' },
+    ],
+    default: 'floating',
+    dependsOn: { key: 'nav.bottomBar', is: [true] },
+  },
+  'nav.barMargin': {
+    key: 'nav.barMargin',
+    section: 'navigation',
+    label: 'Side margin',
+    control: 'range',
+    min: 0,
+    max: 32,
+    step: 1,
+    unit: 'px',
+    default: 16,
+    dependsOn: { key: 'nav.barStyle', is: ['floating'] },
+  },
+  'nav.barGap': {
+    key: 'nav.barGap',
+    section: 'navigation',
+    label: 'Bottom gap',
+    description: 'Added to the space phones keep for the home indicator.',
+    control: 'range',
+    min: 0,
+    max: 32,
+    step: 1,
+    unit: 'px',
+    default: 12,
+    dependsOn: { key: 'nav.barStyle', is: ['floating'] },
+  },
+  'nav.highlight': {
+    key: 'nav.highlight',
+    section: 'navigation',
+    label: 'Current tab',
+    description: 'How the floating bar marks the current page. The label is bold either way.',
+    control: 'segmented',
+    options: [
+      { value: 'pill', label: 'Pill' },
+      { value: 'underline', label: 'Underline' },
+    ],
+    default: 'pill',
+    dependsOn: { key: 'nav.barStyle', is: ['floating'] },
+  },
+  'nav.hideOnScroll': {
+    key: 'nav.hideOnScroll',
+    section: 'navigation',
+    label: 'Hide while scrolling down',
+    description: 'The bar slides away as you scroll down and comes back as soon as you scroll up.',
     control: 'toggle',
     default: false,
     dependsOn: { key: 'nav.bottomBar', is: [true] },

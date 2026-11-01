@@ -1,4 +1,4 @@
-import type { Requirement, SettingDef, Settings } from '../../data/settings-schema'
+import { schema, type Requirement, type SettingDef, type Settings } from '../../data/settings-schema'
 import { caps } from '../../lib/capabilities'
 import { getSettings, replaceSettings, setSettings } from '../../lib/settings'
 import { showToast } from '../../lib/toast'
@@ -10,10 +10,11 @@ export function meets(req: Requirement | undefined): boolean {
 
 export const REQ_TEXT: Record<Requirement, string> = { webgl: 'needs WebGL', chromium: 'needs a Chromium browser' }
 
-/** Whether a setting is shown, given the value of the setting it depends on. */
+/** Whether a setting is shown: the setting it depends on has a listed value and is itself shown. */
 export function isVisible(def: SettingDef, s: Settings): boolean {
   if (!def.dependsOn) return true
-  return def.dependsOn.is.includes(s[def.dependsOn.key] as string | boolean)
+  if (!def.dependsOn.is.includes(s[def.dependsOn.key] as string | boolean)) return false
+  return isVisible(schema[def.dependsOn.key] as SettingDef, s)
 }
 
 

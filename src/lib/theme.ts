@@ -117,9 +117,12 @@ export function resolve(s: Settings, m: Media): Resolved {
       break
   }
   const targets = s['glass.applyTo']
+  // The tab bar and its "More" panel turn solid when glass can't be drawn or isn't wanted:
+  // no backdrop-filter, Background quality Low, or the OS asks for reduced transparency.
+  const navbarSolid = (glass !== 'liquid' && !caps.backdrop) || s['background.quality'] === 'low' || m.osReducedTransparency
   const glassOn = {
     header: glass !== 'off' && targets.includes('header'),
-    navbar: glass !== 'off' && targets.includes('navbar'),
+    navbar: glass !== 'off' && targets.includes('navbar') && !navbarSolid,
     cards: glass !== 'off' && targets.includes('cards'),
     buttons: glass !== 'off' && targets.includes('buttons'),
   }
@@ -197,6 +200,36 @@ function subscribeBoth(l: () => void) {
 
 export function useResolved(): Resolved {
   return useSyncExternalStore(subscribeBoth, getResolved)
+}
+
+// ─── Tab bar contrast ───────────────────────────────────────────────────────
+
+const BAR_NEED = 4.5 + 0.3 // AA plus a margin for the glass saturation boost
+
+/**
+ * Worst content that can pass behind the floating bar: pure white on dark pages, pure black on
+ * light ones (the brightest and darkest anything can be), so the result holds for any page.
+ */
+export const barWorst = (r: Resolved) => (r.mode === 'dark' ? '#ffffff' : '#000000')
+
+/**
+ * Lowest tint opacity (0–1) at which the bar's labels and icons (drawn in --ink) keep AA over the
+ * worst content, before any blur softens it. The Tint opacity setting is used when it's higher.
+ */
+export function navbarTint(s: Settings, r: Resolved): number {
+  const p = r.palette
+  const worst = barWorst(r)
+  let a = s['glass.tint'] / 100
+  while (a < 0.97 && contrast(p.ink, mix(worst, p.bg, a)) < BAR_NEED) a = Math.round((a + 0.01) * 100) / 100
+  return a
+}
+
+/** The current-tab pill: an accent tint behind the label, kept at AA for --ink. */
+export function navPillColor(r: Resolved): string {
+  const p = r.palette
+  let t = 0.28
+  while (t > 0.04 && contrast(p.ink, mix(p.bg, p.accent, t)) < BAR_NEED) t -= 0.02
+  return mix(p.bg, p.accent, t)
 }
 
 // ─── Roundness ──────────────────────────────────────────────────────────────
@@ -321,6 +354,16 @@ export function applyTheme(s: Settings, r: Resolved) {
     '--accent-tint': mix(p.bg, p.accent, 0.16),
     // The "Disc wash" page transition: an accent tint that hides the page without a bright flash.
     '--vt-wash': mix(p.bg, p.accent, 0.24),
+    // Floating tab bar
+    '--bar-margin': `${s['nav.barMargin']}px`,
+    '--bar-gap': `${s['nav.barGap']}px`,
+    '--navbar-tint': rgba(p.bg, navbarTint(s, r)),
+    '--navbar-blur': `${s['glass.blur'] * 1.5}px`,
+    '--navbar-sat': `${s['glass.saturation'] + 40}%`,
+    '--nav-pill': navPillColor(r),
+    '--nav-pill-line': rgba(p.accent, 0.55),
+    '--bar-shadow':
+      r.mode === 'dark' ? '0 16px 36px -12px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.35)' : '0 16px 36px -14px rgba(20, 20, 18, 0.35), 0 2px 8px rgba(20, 20, 18, 0.12)',
   })
   const modColours: [string, string][] = [...modules.map((m): [string, string] => [m.id, p.modules[m.id]]), ['none', p.ink2]]
   for (const [id, c] of modColours) {
@@ -347,6 +390,8 @@ export function applyTheme(s: Settings, r: Resolved) {
     caption: s['hud.caption'] ? 'on' : 'off',
     bg: r.bg,
     tabbar: s['nav.bottomBar'] ? 'on' : 'off',
+    bar: s['nav.barStyle'],
+    tabHighlight: s['nav.highlight'],
     tabLabels: s['nav.labels'] ? 'on' : 'off',
   }
   for (const [k, v] of Object.entries(data)) root.dataset[k] = v

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type PointerEvent } from 'react'
 import { useRoute, type PageId } from '../../lib/env'
 import { useSettings } from '../../lib/settings'
 import { useResolved } from '../../lib/theme'
+import { GlassLayer } from '../glass/GlassLayer'
 import { CloseIcon } from '../icons'
 import { morePages, PAGE_META } from './pages'
 
@@ -82,7 +83,9 @@ export default function MoreSheet({ onClose }: { onClose: (how: SheetClose) => v
     const speed = d.dy / Math.max(1, performance.now() - d.t)
     if (d.dy > 90 || speed > 0.6) {
       if (r.reducedMotion) return onClose('dismiss')
-      el.animate([{ transform: `translateY(${d.dy}px)` }, { transform: 'translateY(100%)' }], { duration: 160, easing: 'ease-in', fill: 'forwards' }).finished.then(
+      // The floating panel sits above the bar: slide it past its own bottom offset too.
+      const lift = parseFloat(getComputedStyle(el).bottom) || 0
+      el.animate([{ transform: `translateY(${d.dy}px)` }, { transform: `translateY(calc(100% + ${lift}px))` }], { duration: 160, easing: 'ease-in', fill: 'forwards' }).finished.then(
         () => onClose('dismiss'),
         () => onClose('dismiss'),
       )
@@ -115,6 +118,7 @@ export default function MoreSheet({ onClose }: { onClose: (how: SheetClose) => v
           }
         }}
       >
+        <GlassLayer target="navbar" bezel={14} strong />
         <span className="sheet-handle" aria-hidden="true" />
         <div className="sheet-head">
           <h2 id={titleId} className="label">
@@ -124,31 +128,33 @@ export default function MoreSheet({ onClose }: { onClose: (how: SheetClose) => v
             <CloseIcon />
           </button>
         </div>
-        <ul className="sheet-list">
-          {items.map((id) => {
-            const { Icon, label } = PAGE_META[id]
-            const current = id === page
-            return (
-              <li key={id}>
-                <a
-                  className="sheet-link"
-                  href={`#/${id}`}
-                  aria-current={current ? 'page' : undefined}
-                  onClick={(e) => {
-                    if (current) {
-                      e.preventDefault()
-                      onClose('dismiss')
-                    } else onClose('navigate')
-                  }}
-                >
-                  <Icon />
-                  <span className="sheet-link-label">{label}</span>
-                  {current && <span className="badge label">Current</span>}
-                </a>
-              </li>
-            )
-          })}
-        </ul>
+        <div className="sheet-body">
+          <ul className="sheet-list">
+            {items.map((id) => {
+              const { Icon, label } = PAGE_META[id]
+              const current = id === page
+              return (
+                <li key={id}>
+                  <a
+                    className="sheet-link"
+                    href={`#/${id}`}
+                    aria-current={current ? 'page' : undefined}
+                    onClick={(e) => {
+                      if (current) {
+                        e.preventDefault()
+                        onClose('dismiss')
+                      } else onClose('navigate')
+                    }}
+                  >
+                    <Icon />
+                    <span className="sheet-link-label">{label}</span>
+                    {current && <span className="badge label">Current</span>}
+                  </a>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       </div>
     </>
   )

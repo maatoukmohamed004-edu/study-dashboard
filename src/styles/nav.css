@@ -1,12 +1,20 @@
 /* ─── Phone tab bar and "More" sheet ─────────────────────────────────────────
    Phones only (≤ 640 px) with Settings → Navigation → Tab bar on phones (<html data-tabbar="on">).
-   From the bottom of the screen up: the home-indicator inset, the tab bar, a strip for the
-   caption, then the frame's bottom line. Everything keyed to --frame-bottom (floating buttons,
-   toasts, the quick drawer, the page's bottom padding) moves up with it. */
+   Two styles (<html data-bar>):
+   - docked: from the bottom of the screen up, the home-indicator inset, the full-width bar, a
+     strip for the caption, then the frame's bottom line.
+   - floating: a glass pill inset by --bar-margin and lifted by --bar-gap. The frame and the page
+     run down behind it (--frame-edge); the caption and the floating buttons sit above it.
+   Everything keyed to --frame-bottom (floating buttons, toasts, the quick drawer, the page's
+   bottom padding) clears the bar. */
 
 :root {
   --tabbar-h: 64px;
   --caption-h: 30px;
+  --bar-margin: 16px;
+  --bar-gap: 12px;
+  /* The floating bar's corner: its roundness setting, never more than half its height. */
+  --radius-nav-px: min(var(--radius-nav), calc(var(--tabbar-h) / 2));
 }
 
 .tabbar {
@@ -36,6 +44,27 @@
 
   :root[data-tabbar='on'][data-frame='off'][data-caption='on'] {
     --frame-bottom: calc(var(--bar-space) + var(--caption-h));
+  }
+
+  /* Floating: the bar is lifted off the bottom edge; the frame's line and mat stay at the edge,
+     so content scrolls behind and around the bar. */
+  :root[data-tabbar='on'][data-bar='floating'] {
+    --bar-space: calc(var(--tabbar-h) + var(--bar-gap) + var(--safe-b));
+    --frame-edge: calc(var(--frame) + var(--safe-b));
+    --bar-hide: calc(var(--tabbar-h) + var(--bar-gap) + var(--safe-b) + 4px);
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'],
+  :root[data-tabbar='on'][data-bar='floating'][data-frame='off'][data-caption='on'] {
+    --frame-bottom: calc(var(--bar-space) + var(--caption-h) + 6px);
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'][data-caption='off'] {
+    --frame-bottom: calc(var(--bar-space) + 10px);
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'][data-frame='off'] {
+    --frame-edge: var(--safe-b);
   }
 
   /* On-screen keyboard: the bar, caption and floating button step aside (never above the keys). */
@@ -143,6 +172,125 @@
     opacity: 1;
   }
 
+  /* ── Floating bar ── */
+  :root[data-tabbar='on'][data-bar='floating'] .tabbar {
+    left: calc(var(--bar-margin) + var(--safe-l));
+    right: calc(var(--bar-margin) + var(--safe-r));
+    bottom: calc(var(--bar-gap) + var(--safe-b));
+    height: var(--tabbar-h);
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-nav-px);
+    box-shadow: var(--bar-shadow);
+    isolation: isolate;
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'][data-glass-navbar='on'] .tabbar {
+    border-color: var(--glass-edge-soft);
+  }
+
+  /* Glass: stronger blur and saturation than elsewhere, and a tint high enough for AA. */
+  :root .tabbar .lg-layer,
+  :root .sheet .lg-layer {
+    background: var(--navbar-tint);
+  }
+
+  :root[data-bar='floating'][data-glass='blur'] .tabbar .lg-layer,
+  :root[data-bar='floating'][data-glass='blur'] .sheet .lg-layer {
+    backdrop-filter: blur(var(--navbar-blur)) saturate(var(--navbar-sat));
+  }
+
+  :root[data-bar='floating'] .tabbar-list {
+    height: 100%;
+    padding: 0 6px;
+  }
+
+  :root[data-bar='floating'] .tab {
+    color: var(--ink);
+  }
+
+  :root[data-bar='floating'] .tab-mark {
+    display: none;
+  }
+
+  /* The current-tab highlight: one element that slides between tabs (transform only). */
+  .tab-pill {
+    display: none;
+  }
+
+  :root[data-bar='floating'] .tab-pill {
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    bottom: 0;
+    left: 6px;
+    display: block;
+    width: calc((100% - 12px) / 5);
+    transform: translateX(calc(var(--tab-i, 0) * 100%));
+    transition: transform calc(420ms * var(--motion-k)) cubic-bezier(0.3, 0.9, 0.3, 1);
+    pointer-events: none;
+  }
+
+  .tab-pill-shape {
+    position: absolute;
+    inset: 6px 3px;
+    /* Nested in the bar: its corner minus the 6 px inset. */
+    border-radius: max(0px, calc(var(--radius-nav-px) - 6px));
+    background: var(--nav-pill);
+    box-shadow: inset 0 0 0 1px var(--nav-pill-line);
+  }
+
+  [data-tab-highlight='underline'] .tab-pill-shape {
+    inset: auto calc(50% - 12px) 5px;
+    height: 3px;
+    border-radius: var(--radius-mark);
+    background: var(--accent);
+    box-shadow: none;
+  }
+
+  :root[data-bar='floating'] .tab-pill[data-metal='on'] .tab-pill-shape {
+    background: none;
+    box-shadow: none;
+  }
+
+  :root[data-bar='floating'] .tab-metal[aria-current='page'],
+  :root[data-bar='floating'] .tab-metal[data-active='true'] {
+    color: var(--metal-ink);
+  }
+
+  /* Caption: a small chip above the bar; floating buttons above that. */
+  :root[data-tabbar='on'][data-bar='floating'] .hud-caption {
+    left: calc(var(--bar-margin) + var(--safe-l));
+    right: auto;
+    max-width: calc(100% - 2 * var(--bar-margin) - var(--safe-l) - var(--safe-r));
+    bottom: calc(var(--bar-space) + 6px);
+    height: 24px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: min(var(--radius-nav-px), 12px);
+    background: var(--bg);
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'] .fab-stack {
+    right: calc(var(--bar-margin) + var(--safe-r));
+  }
+
+  /* Hide while scrolling down (Settings → Navigation); focus or scrolling up brings it back. */
+  :root[data-tabbar='on'] .tabbar,
+  :root[data-tabbar='on'] .hud-caption,
+  :root[data-tabbar='on'] .fab-stack {
+    transition: transform calc(260ms * var(--motion-k)) cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  :root[data-tabbar='on'][data-bar-hidden='true'] .tabbar {
+    transform: translateY(var(--bar-hide, 100%));
+  }
+
+  :root[data-tabbar='on'][data-bar-hidden='true'] .hud-caption,
+  :root[data-tabbar='on'][data-bar-hidden='true'] .fab-stack {
+    transform: translateY(calc(var(--bar-hide, var(--bar-space)) - 4px));
+  }
+
   .tab:focus-visible {
     outline-offset: -4px;
   }
@@ -181,9 +329,11 @@
   left: 0;
   right: 0;
   bottom: 0;
+  display: flex;
+  flex-direction: column;
   max-height: 80vh;
   max-height: 80dvh;
-  overflow: auto;
+  overflow: hidden;
   padding: 4px calc(8px + var(--safe-r)) calc(12px + var(--safe-b)) calc(8px + var(--safe-l));
   background: var(--bg);
   border-top: 1px solid var(--line-strong);
@@ -193,9 +343,64 @@
   animation: sheet-in calc(var(--dur) * 1.8) cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* The glass layer stays put while the list scrolls inside .sheet-body. */
+.sheet > :not(.lg-layer) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Glass only on the floating panel; the docked sheet stays solid, as before. */
+:root:not([data-tabbar='on'][data-bar='floating']) .sheet > .lg-layer {
+  display: none;
+}
+
+.sheet-body {
+  min-height: 0;
+  overflow: auto;
+}
+
 @keyframes sheet-in {
   from {
-    transform: translateY(100%);
+    transform: translateY(var(--sheet-from, 100%));
+  }
+}
+
+/* With the floating bar: a floating glass panel just above it, with the bar's corners. */
+@media (max-width: 640px) {
+  :root[data-tabbar='on'][data-bar='floating'] .sheet {
+    --sheet-from: calc(100% + var(--bar-space) + 8px);
+    left: calc(var(--bar-margin) + var(--safe-l));
+    right: calc(var(--bar-margin) + var(--safe-r));
+    bottom: calc(var(--bar-space) + 8px);
+    max-height: calc(100dvh - var(--bar-space) - var(--frame-t) - 24px);
+    padding: 4px 8px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-nav-px);
+    box-shadow: var(--bar-shadow);
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'][data-glass-navbar='on'] .sheet {
+    background: transparent;
+    border-color: var(--glass-edge-soft);
+  }
+
+  /* Rows are separated by space, not rules, and the current page wears the bar's pill. */
+  :root[data-tabbar='on'][data-bar='floating'] .sheet-list {
+    gap: 2px;
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'] .sheet-link {
+    border-top: 0;
+    border-radius: max(0px, calc(var(--radius-nav-px) - 8px));
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'] .sheet-link:hover {
+    background: var(--raised);
+  }
+
+  :root[data-tabbar='on'][data-bar='floating'] .sheet-link[aria-current='page'] {
+    background: var(--nav-pill);
+    box-shadow: inset 0 0 0 1px var(--nav-pill-line);
   }
 }
 

@@ -23,10 +23,20 @@ function detectChromium(): boolean {
   return /Chrome\/\d+/.test(navigator.userAgent)
 }
 
+function detectBackdrop(): boolean {
+  try {
+    return CSS.supports('backdrop-filter', 'blur(1px)') || CSS.supports('-webkit-backdrop-filter', 'blur(1px)')
+  } catch {
+    return false
+  }
+}
+
 export const caps = {
   webgl: detectWebGL(),
   /** SVG filters in backdrop-filter (the refraction) only work in Chromium. */
   chromium: detectChromium(),
+  /** backdrop-filter at all (glass needs it; without it surfaces fall back to a solid tint). */
+  backdrop: detectBackdrop(),
 }
 
 // ─── Live media state ───────────────────────────────────────────────────────
@@ -35,6 +45,8 @@ export interface Media {
   phone: boolean
   osReducedMotion: boolean
   osDark: boolean
+  /** prefers-reduced-transparency: glass bars become solid. */
+  osReducedTransparency: boolean
   visible: boolean
 }
 
@@ -42,6 +54,7 @@ const queries = {
   phone: '(max-width: 640px)',
   osReducedMotion: '(prefers-reduced-motion: reduce)',
   osDark: '(prefers-color-scheme: dark)',
+  osReducedTransparency: '(prefers-reduced-transparency: reduce)',
 }
 
 function read(): Media {
@@ -49,6 +62,7 @@ function read(): Media {
     phone: matchMedia(queries.phone).matches,
     osReducedMotion: matchMedia(queries.osReducedMotion).matches,
     osDark: matchMedia(queries.osDark).matches,
+    osReducedTransparency: matchMedia(queries.osReducedTransparency).matches,
     visible: document.visibilityState === 'visible',
   }
 }
@@ -62,6 +76,7 @@ function refresh() {
     next.phone !== media.phone ||
     next.osReducedMotion !== media.osReducedMotion ||
     next.osDark !== media.osDark ||
+    next.osReducedTransparency !== media.osReducedTransparency ||
     next.visible !== media.visible
   ) {
     media = next

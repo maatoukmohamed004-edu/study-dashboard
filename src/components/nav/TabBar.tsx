@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type CSSProperties } from 'react'
 import { getRoute, navigate, pageLabel, useRoute, type PageId } from '../../lib/env'
 import { useSettings } from '../../lib/settings'
 import { useResolved } from '../../lib/theme'
@@ -8,9 +8,10 @@ import { PAGE_META, swipeOrder } from './pages'
 
 /**
  * Phone navigation in the thumb zone: four tabs (Settings → Navigation → Tabs) and "More".
- * The active tab shows an indicator bar, a bold label and aria-current; tapping it again
- * scrolls to the top. While a text field has focus the bar hides, so it never sits above
- * the on-screen keyboard or covers the field.
+ * - Floating (default): a glass pill; the current tab sits on a highlight that slides between
+ *   tabs. Docked: the full-width bar with an indicator line at the top of the tab.
+ * - The current tab always has a bold label and aria-current; tapping it again scrolls to the top.
+ * - While a text field has focus the bar hides, so it never sits above the on-screen keyboard.
  */
 export function TabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: (opener: HTMLElement) => void }) {
   const { page } = useRoute()
@@ -18,13 +19,19 @@ export function TabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: (opene
   const r = useResolved()
   const tabs = s['nav.tabs'] as PageId[]
   const inMore = !tabs.includes(page)
+  const index = inMore ? tabs.length : tabs.indexOf(page)
 
   useKeyboardWatch()
   useSwipe(s['nav.swipe'], tabs)
+  useHideOnScroll(s['nav.hideOnScroll'] && !moreOpen, page)
 
   return (
     <nav className="tabbar" aria-label="Pages">
-      <GlassLayer target="navbar" bezel={14} />
+      <GlassLayer target="navbar" bezel={14} strong />
+      {/* One highlight for the whole bar: it moves with transform and is never re-mounted. */}
+      <span className="tab-pill" aria-hidden="true" style={{ '--tab-i': index } as CSSProperties}>
+        <span className="tab-pill-shape" />
+      </span>
       <ul className="tabbar-list">
         {tabs.map((id) => {
           const { Icon, short } = PAGE_META[id]
@@ -142,4 +149,44 @@ function useSwipe(enabled: boolean, tabs: PageId[]) {
       document.removeEventListener('touchend', onEnd)
     }
   }, [enabled, key])
+}
+
+/**
+ * Settings → Navigation → Hide while scrolling down. Sets <html data-bar-hidden="true"> after a
+ * deliberate scroll down and clears it on any scroll up, near the top or bottom of the page, on
+ * a page change, and whenever focus is inside the bar (keyboard users always see where they are).
+ */
+function useHideOnScroll(enabled: boolean, page: PageId) {
+  useEffect(() => {
+    const root = document.documentElement
+    const show = () => delete root.dataset.barHidden
+    show()
+    if (!enabled) return
+    let lastY = window.scrollY
+    let travel = 0
+    const onScroll = () => {
+      const y = window.scrollY
+      const dy = y - lastY
+      lastY = y
+      const nearEnd = y + window.innerHeight >= document.documentElement.scrollHeight - 24
+      if (y < 64 || nearEnd || document.querySelector('.tabbar')?.contains(document.activeElement)) {
+        travel = 0
+        return show()
+      }
+      // Ignore jitter: hide after 24 px of travel down, show after 8 px up.
+      travel = dy > 0 ? Math.max(0, travel) + dy : Math.min(0, travel) + dy
+      if (travel > 24) root.dataset.barHidden = 'true'
+      else if (travel < -8) show()
+    }
+    const onFocus = (e: FocusEvent) => {
+      if ((e.target as Element | null)?.closest?.('.tabbar')) show()
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    document.addEventListener('focusin', onFocus)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      document.removeEventListener('focusin', onFocus)
+      show()
+    }
+  }, [enabled, page])
 }

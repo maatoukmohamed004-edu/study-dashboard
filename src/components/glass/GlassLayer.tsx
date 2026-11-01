@@ -22,14 +22,24 @@ interface Props {
   bezel?: number
   /** 0–1 share of the refraction strength setting. */
   strengthScale?: number
+  /** Stronger frost: 1.5× blur and +40 % saturation (the floating tab bar and its panel). */
+  strong?: boolean
 }
 
-export function GlassLayer({ target, bezel = 12, strengthScale = 1 }: Props) {
+export function GlassLayer({ target, bezel = 12, strengthScale = 1, strong = false }: Props) {
   const r = useResolved()
   const s = useSettings()
   if (!r.glassOn[target]) return null
   if (r.glass === 'liquid') return <LiquidLayer />
-  if (r.glass === 'svg') return <SvgLayer bezel={bezel} strength={s['glass.refraction'] * strengthScale} blur={s['glass.blur'] / 2} saturation={s['glass.saturation']} />
+  if (r.glass === 'svg')
+    return (
+      <SvgLayer
+        bezel={bezel}
+        strength={s['glass.refraction'] * strengthScale}
+        blur={(s['glass.blur'] / 2) * (strong ? 1.5 : 1)}
+        saturation={s['glass.saturation'] + (strong ? 40 : 0)}
+      />
+    )
   return <span className="lg-layer" aria-hidden="true" />
 }
 
