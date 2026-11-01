@@ -861,3 +861,29 @@ These worked well for this project; reuse them unless told otherwise:
 - Verify with evidence (section 11), on the production build, at 1440 and 390 px.
 - Keep the README honest: user-facing, with a real Limits section.
 - Finish with a short summary: what changed, what was verified, what couldn't be verified.
+
+## 17. Claude artifact version and cloud sync (phase 5, 2026-11-01)
+
+The same build also runs as a published Claude artifact (claude.ai/artifact/Ayog4epS7EHmMjXBXoF9qD),
+where it syncs across devices and Claude can read and write it.
+
+- `src/lib/cloud.ts`: `startCloud()` (called in `main.tsx`) asks `window.claude.use('db')`. Outside
+  the artifact it resolves null and the app is local-only, exactly as before. Inside, progress is
+  mirrored to documents: `days/<date>` {blocks, classes?, firstTask?, badDay?, badDaySteps},
+  `meta/core` {doFirst, absences, checkpointScores}, `checks/<weekOf>`. The `study-dashboard:v1`
+  key is still written as the offline cache (hard rule 3 holds). Local edits are debounced (600 ms)
+  and written one document at a time; unsaved edits are kept on top of incoming snapshots. On the
+  first run with an empty store, this browser's progress is uploaded.
+- `src/lib/extras.ts`: tasks, user resources and "From Claude" notes, one document each
+  (`tasks/<id>`, `resources/<id>`, `nudges/<id>`), coerced on read because Claude writes them too.
+  Outside the artifact they live under `study-dashboard:extras:v1`.
+- `src/components/Extras.tsx`: Tasks and From Claude cards (Today), Your resources (Resources),
+  the sync line (Settings → Data) and the sync notice.
+- `src/lib/saveFile.ts`: exports go through the `downloads` capability in the artifact (pages
+  can't start downloads there), a link click elsewhere.
+- Publishing: `npm run build`, then publish `dist/assets/*` as supporting files and a body-only
+  index (title, the script/modulepreload/stylesheet tags, the empty `style[data-paper-shader]`,
+  `#root`). Escape any U+FFFD in JS chunks (GradientScene has two) or the publish is refused.
+  Capabilities: `db` with rule `{path: "", read: "admin", write: "admin"}` (owner only) and
+  `downloads`.
+- First-load JS is now 106.6 kB gz (+3.4 kB for sync, tasks and resources).

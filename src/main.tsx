@@ -19,10 +19,13 @@ import './styles/nav.css'
 import './styles/metal.css'
 import './styles/transitions.css'
 import { startTheme } from './lib/theme'
+import { startCloud } from './lib/cloud'
 import App from './App.tsx'
 
 // Apply settings to :root before the first render, so there is no flash of the wrong theme.
 startTheme()
+// Inside a Claude artifact this connects the shared database; elsewhere it stays local-only.
+void startCloud()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -3,20 +3,14 @@
  * these, so they stay out of the first-load bundle.
  */
 import { settingsList, type SettingKey, type Settings } from '../data/settings-schema'
+import { saveTextFile } from './saveFile'
 import { fromValues, getSettings, migrate, SETTINGS_FILE_KIND, SETTINGS_VERSION, SettingsFileError } from './settings'
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 export function exportSettings(today: string) {
   const body = { kind: SETTINGS_FILE_KIND, version: SETTINGS_VERSION, exportedAt: new Date().toISOString(), values: getSettings() }
-  const url = URL.createObjectURL(new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `study-dashboard-settings-${today}.json`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  void saveTextFile(`study-dashboard-settings-${today}.json`, JSON.stringify(body, null, 2))
 }
 
 /** Reads a settings file. Rejects files that are not settings; repairs bad values one key at a time. */

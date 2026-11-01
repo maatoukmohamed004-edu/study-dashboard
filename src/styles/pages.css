@@ -1620,6 +1620,189 @@
   gap: var(--s2);
 }
 
+
+/* ─── Tasks, notes from Claude, your resources, sync line ───────────────── */
+.badge-alarm {
+  border-color: var(--alarm);
+  color: var(--alarm);
+}
+
+.nudge-list,
+.task-list,
+.user-res-list {
+  list-style: none;
+  display: grid;
+  gap: var(--s3);
+}
+
+.nudge {
+  display: grid;
+  gap: var(--s1);
+  padding-left: var(--s3);
+  border-left: 2px solid var(--ink-2);
+  font-size: var(--t-sm);
+}
+
+.nudge.is-warn {
+  border-left-color: var(--warn);
+}
+
+.nudge.is-alarm {
+  border-left-color: var(--alarm);
+}
+
+.nudge .badge {
+  margin: 0 8px 0 0;
+}
+
+.nudge-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.task {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--s2);
+  padding-left: var(--s2);
+  border-left: 2px solid var(--mod);
+  font-size: var(--t-sm);
+}
+
+.task-title {
+  display: block;
+  color: var(--ink);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 2px;
+  color: var(--ink-2);
+}
+
+.task-meta .badge {
+  margin-left: 0;
+}
+
+.task-mod {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-note {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-2);
+}
+
+.task.is-done .task-title {
+  color: var(--ink-2);
+  font-weight: 400;
+  text-decoration: line-through;
+}
+
+.task-del {
+  font-size: var(--t-xs);
+}
+
+.task-form {
+  display: grid;
+  gap: var(--s2);
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+
+.task-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: var(--s2);
+}
+
+.task-form .btn,
+.res-form .btn {
+  justify-self: start;
+}
+
+.user-res {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s4);
+}
+
+.user-res > p {
+  align-self: center;
+}
+
+.user-res-list {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+}
+
+.user-res-item {
+  display: grid;
+  align-content: start;
+  gap: var(--s1);
+  border-top: 2px solid var(--mod);
+}
+
+.user-res-item .btn-link {
+  justify-self: start;
+}
+
+.res-form {
+  display: grid;
+  gap: var(--s2);
+}
+
+.sync-line {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--s1);
+  color: var(--ink-2);
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border: 1px solid var(--ink-2);
+  border-radius: 50%;
+}
+
+.sync-line.is-synced .sync-dot {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.sync-line.is-saving .sync-dot,
+.sync-line.is-connecting .sync-dot {
+  border-color: var(--ink);
+}
+
+.sync-line.is-offline .sync-dot,
+.sync-line.is-error .sync-dot {
+  background: var(--alarm);
+  border-color: var(--alarm);
+}
+
+@media (max-width: 1000px) {
+  .user-res {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1000px) {
   .today-grid,

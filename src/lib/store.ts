@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { modules, type ModuleId } from '../data/plan'
+import { saveTextFile } from './saveFile'
 
 // ─── Shape ──────────────────────────────────────────────────────────────────
 
@@ -215,13 +216,35 @@ export function getState(): SavedState {
   return state
 }
 
-export function setState(update: (s: SavedState) => SavedState) {
-  state = update(state)
+// Hooks told about every change made in this tab (the cloud sync pushes them).
+type ChangeHook = (prev: SavedState, next: SavedState) => void
+const changeHooks = new Set<ChangeHook>()
+
+/** Called after every local change, with the state before and after. */
+export function onLocalChange(hook: ChangeHook) {
+  changeHooks.add(hook)
+  return () => changeHooks.delete(hook)
+}
+
+function commitLocal(next: SavedState) {
+  const prev = state
+  state = next
   writeStorage(state)
   emit()
+  for (const h of changeHooks) h(prev, state)
+}
+
+export function setState(update: (s: SavedState) => SavedState) {
+  commitLocal(update(state))
 }
 
 export function replaceState(next: SavedState) {
+  commitLocal(next)
+}
+
+/** State that arrived from the cloud: shown and cached, but not pushed back. */
+export function applyRemote(next: SavedState) {
+  if (JSON.stringify(next) === JSON.stringify(state)) return
   state = next
   writeStorage(state)
   emit()
@@ -303,17 +326,7 @@ export function setCheckpointScore(key: string, value: number | null) {
 // ─── Backup ─────────────────────────────────────────────────────────────────
 
 export function exportJSON(today: string) {
-  const blob = new Blob([JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2)], {
-    type: 'application/json',
-  })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `study-dashboard-${today}.json`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  void saveTextFile(`study-dashboard-${today}.json`, JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2))
 }
 
 export async function parseBackup(file: File): Promise<SavedState> {

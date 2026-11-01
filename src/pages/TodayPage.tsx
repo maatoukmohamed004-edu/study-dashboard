@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { badDay, doFirst, everyDay, examMode, goal, moduleById, planStart, sundayCheck, type FixedDate } from '../data/plan'
 import { Rich } from '../components/Rich'
+import { NudgesCard, TasksCard } from '../components/Extras'
 import { GlassLayer } from '../components/glass/GlassLayer'
 import { LiquidMetalSurface } from '../components/metal/LiquidMetalSurface'
 import { useMetalOn } from '../components/metal/useMetalOn'
@@ -34,7 +35,9 @@ export function TodayPage() {
       <div className="today-grid section">
         <Agenda day={day} isToday={isToday} clock={clock} />
         <aside className="today-side" aria-label="Notes for the day">
+          <NudgesCard />
           <FirstTasks date={viewDate} />
+          <TasksCard today={realToday} />
           {day.mode !== 'before-plan' && day.mode !== 'rest' && <BadDayCard date={viewDate} />}
           <DoFirstCard key={viewDate} today={viewDate} />
         </aside>

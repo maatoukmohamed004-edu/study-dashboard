@@ -8,6 +8,7 @@ import { Toaster } from './components/Toast'
 import { pageLabel, setPagePreloader, useRoute, type PageId } from './lib/env'
 import { useSetting, useSettingsProblem } from './lib/settings'
 import { useStorageProblem } from './lib/store'
+import { SyncNotice } from './components/Extras'
 import { useMediaState } from './lib/capabilities'
 import { loadedPage, preloadAll, preloadPage } from './pages/registry'
 
@@ -114,6 +115,7 @@ export default function App() {
               {storageProblem}
             </p>
           )}
+          <SyncNotice />
           {settingsProblem && (
             <p className="notice" role="alert">
               {settingsProblem}
