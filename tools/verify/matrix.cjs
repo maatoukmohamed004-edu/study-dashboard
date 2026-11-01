@@ -2,11 +2,14 @@
 // Needs a running server (npm run build && npm run preview -- --port 5173) and, once:
 //   npm i --no-save playwright pngjs && npx playwright install chromium
 // "all" = 5 presets × 7 pages × 1440/390 px + 4 glass modes × 2 widths (78 shots, slow on software WebGL).
+// "phone" = Mono Noir and Light × 7 pages × 390/360 px. "variants" = the floating bar, roundness, glass
+// and liquid-metal variants at 390 px (see VARIANTS), including worst-case content behind the bar.
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
-// Usage: node tools/verify/matrix.cjs <out-dir> [all | presets | glass | only <preset:page:width[:sheet]> ...]
+// Usage: node tools/verify/matrix.cjs <out-dir> [all | presets | glass | phone | variants | only <tag:page:width[:sheet]> ...]
+//   (tag = a preset, glass-<mode>, or a VARIANTS name)
 // Phone widths (≤ 640) use a touch viewport with emulated safe-area insets; ":sheet" opens "More" first.
 const OUT = path.resolve(process.argv[2] || 'verify-out/matrix');
 fs.mkdirSync(OUT, { recursive: true });
@@ -21,7 +24,45 @@ const presets = {
   'high-contrast': { ...clear, 'appearance.preset': 'high-contrast', 'appearance.colorMode': 'dark', 'appearance.radius': 0, 'background.type': 'solid', 'glass.mode': 'off', 'hud.grid': false, 'hud.orbStyle': 'dotted' },
 };
 const pages = ['today', 'week', 'plan', 'resources', 'absences', 'check', 'settings'];
-const sizes = [[1440, 900], [390, 844]];
+const sizes = [[1440, 900], [390, 844], [360, 780]];
+// Variants of the phone chrome: settings on top of a preset, plus optional worst-case content
+// ("white" or "black") placed directly behind the bar.
+const V = (base, extra, more = {}) => ({ settings: { ...presets[base], ...extra }, ...more });
+const VARIANTS = {
+  'noir-docked': V('mono-noir', { 'nav.barStyle': 'docked' }),
+  'light-docked': V('light', { 'nav.barStyle': 'docked' }),
+  'noir-square': V('mono-noir', { 'appearance.roundness': 'square', 'appearance.radius': 0 }),
+  'noir-rounded': V('mono-noir', { 'appearance.roundness': 'rounded', 'appearance.radius': 16 }),
+  'noir-pill': V('mono-noir', { 'appearance.roundness': 'pill', 'appearance.radius': 28 }),
+  'light-rounded': V('light', { 'appearance.roundness': 'rounded', 'appearance.radius': 16 }),
+  'light-pill': V('light', { 'appearance.roundness': 'pill', 'appearance.radius': 28 }),
+  'glass-off-phone': V('mono-noir', { 'glass.mode': 'off' }),
+  'glass-blur-phone': V('mono-noir', { 'glass.mode': 'blur' }),
+  'glass-refraction-phone': V('mono-noir', { 'glass.mode': 'refraction' }),
+  'glass-liquid-phone': V('mono-noir', { 'glass.mode': 'liquid' }),
+  'noir-metal-live': V('mono-noir', {}),
+  'noir-metal-css': V('mono-noir', { 'background.quality': 'low' }),
+  'noir-metal-reduced': V('mono-noir', { 'motion.mode': 'reduced' }),
+  'light-metal-live': V('light', {}),
+  'noir-metal-all': V('mono-noir', { 'metal.applyTo': ['tab', 'primary', 'floating'] }),
+  'noir-underline': V('mono-noir', { 'nav.highlight': 'underline' }),
+  'noir-worst-white': V('mono-noir', {}, { inject: '#ffffff' }),
+  'light-worst-black': V('light', {}, { inject: '#000000' }),
+  'midnight-worst-white': V('midnight', {}, { inject: '#ffffff' }),
+  'graphite-worst-white': V('graphite', {}, { inject: '#ffffff' }),
+  'hc-worst-white': V('high-contrast', {}, { inject: '#ffffff' }),
+  'noir-tint20-white': V('mono-noir', { 'glass.tint': 20 }, { inject: '#ffffff' }),
+  'light-tint20-black': V('light', { 'glass.tint': 20 }, { inject: '#000000' }),
+};
+const variantRuns = [
+  ...['noir-docked', 'light-docked', 'noir-square', 'noir-rounded', 'noir-pill', 'light-rounded', 'light-pill', 'noir-underline'].map((t) => [t, 'today']),
+  ...['glass-off-phone', 'glass-blur-phone', 'glass-refraction-phone', 'glass-liquid-phone'].map((t) => [t, 'week']),
+  ...['noir-metal-live', 'noir-metal-css', 'noir-metal-reduced', 'light-metal-live', 'noir-metal-all'].map((t) => [t, 'today']),
+  ...['noir-worst-white', 'light-worst-black', 'midnight-worst-white', 'graphite-worst-white', 'hc-worst-white', 'noir-tint20-white', 'light-tint20-black'].map((t) => [t, 'plan']),
+  ['mono-noir', 'week', 'sheet'],
+  ['light', 'week', 'sheet'],
+  ['noir-pill', 'plan', 'sheet'],
+];
 const seed = fs.readFileSync(path.join(__dirname, 'seed.json'), 'utf8');
 const mode = process.argv[3] || 'all';
 
@@ -61,6 +102,10 @@ async function measure(page, W, H) {
         if (b.width < 2 || b.height < 2 || b.bottom < 0 || b.top > innerHeight || b.right < 0 || b.left > innerWidth) continue;
         // HUD chrome outside the frame window is measured too: caption, FPS, tab bar, "More" sheet.
         const isHud = (caption && caption.contains(el)) || el.closest('.fps, .tabbar, .sheet');
+        // The floating bar's caption chip is opaque but ignores pointer events, so elementFromPoint
+        // can't see it: text under it is covered, not low-contrast.
+        const chip = document.documentElement.dataset.bar === 'floating' && caption ? caption.getBoundingClientRect() : null;
+        if (!isHud && chip && chip.width > 0 && b.left < chip.right && b.right > chip.left && b.top < chip.bottom && b.bottom > chip.top) continue;
         if (!isHud && inFrame && (b.top < win.t + 6 || b.bottom > win.b - 6 || b.left < win.l + 6 || b.right > win.r - 6)) continue;
         if (!isHud && !inFrame && b.bottom > floor) continue;
         const cs = getComputedStyle(el);
@@ -111,7 +156,7 @@ async function measure(page, W, H) {
 (async () => {
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const report = [];
-  const run = async (tag, settings, pageId, [W, H], doContrast, sheet = false) => {
+  const run = async (tag, settings, pageId, [W, H], doContrast, sheet = false, inject = null) => {
     const phone = W <= 640;
     const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: phone, isMobile: phone });
     await ctx.addInitScript(([s, p]) => {
@@ -119,7 +164,7 @@ async function measure(page, W, H) {
       localStorage.setItem('study-dashboard:v1', p);
       window.__errs = [];
       window.addEventListener('error', (e) => window.__errs.push(String(e.message)));
-    }, [JSON.stringify({ version: 1, values: { ...settings, ...sim } }), seed]);
+    }, [JSON.stringify({ version: 2, values: { ...settings, ...sim } }), seed]);
     const page = await ctx.newPage();
     // Phones: emulate a notch and home indicator (env(safe-area-inset-*)).
     if (phone) await (await ctx.newCDPSession(page)).send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 47, bottom: 34, left: 0, right: 0 } }).catch(() => {});
@@ -128,6 +173,13 @@ async function measure(page, W, H) {
     page.on('console', m => m.type() === 'error' && errs.push(m.text()));
     await page.goto(`${BASE}/#/${pageId}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(3500);
+    // Worst case behind the bar: a solid block right under it (above the page, below the bar).
+    if (inject) await page.evaluate((c) => {
+      const d = document.createElement('div');
+      d.id = 'worst-case';
+      Object.assign(d.style, { position: 'fixed', left: '0', right: '0', bottom: '0', height: '140px', zIndex: '45', background: c, pointerEvents: 'none' });
+      document.body.appendChild(d);
+    }, inject);
     if (sheet) {
       await page.tap('.tab-more');
       await page.waitForSelector('#more-sheet');
@@ -158,17 +210,27 @@ async function measure(page, W, H) {
   if (mode === 'only') {
     for (const spec of process.argv.slice(4)) {
       const [tag, pg, w, extra] = spec.split(':');
-      const settings = tag.startsWith('glass-') ? { ...presets['mono-noir'], 'glass.mode': tag.slice(6) } : presets[tag] ?? { ...presets['mono-noir'], ...(tag === 'graphite' ? { ...clear, 'appearance.preset': 'graphite', 'appearance.colorMode': 'dark', 'appearance.radius': 6, 'background.type': 'dots', 'glass.mode': 'blur', 'glass.tint': 70 } : {}) };
-      await run(tag, settings, pg, sizes.find(([sw]) => String(sw) === w), true, extra === 'sheet');
+      const v = VARIANTS[tag];
+      const settings = v ? v.settings : tag.startsWith('glass-') ? { ...presets['mono-noir'], 'glass.mode': tag.slice(6) } : presets[tag] ?? presets['mono-noir'];
+      await run(tag, settings, pg, sizes.find(([sw]) => String(sw) === w), true, extra === 'sheet', v?.inject);
     }
   }
   if (mode === 'all' || mode === 'presets')
     for (const [name, s] of Object.entries(presets))
-      for (const size of sizes)
+      for (const size of sizes.slice(0, 2))
         for (const p of pages) await run(name, s, p, size, true);
   if (mode === 'all' || mode === 'glass')
     for (const g of ['off', 'blur', 'refraction', 'liquid'])
-      for (const size of sizes) await run(`glass-${g}`, { ...presets['mono-noir'], 'glass.mode': g }, 'today', size, true);
+      for (const size of sizes.slice(0, 2)) await run(`glass-${g}`, { ...presets['mono-noir'], 'glass.mode': g }, 'today', size, true);
+  if (mode === 'phone')
+    for (const name of ['mono-noir', 'light'])
+      for (const size of sizes.slice(1))
+        for (const p of pages) await run(name, presets[name], p, size, true);
+  if (mode === 'variants')
+    for (const [tag, p, extra] of variantRuns) {
+      const v = VARIANTS[tag];
+      await run(tag, v ? v.settings : presets[tag], p, sizes[1], true, extra === 'sheet', v?.inject);
+    }
   fs.writeFileSync(`${OUT}/report-${mode}.txt`, report.join('\n'));
   await browser.close();
 })();

@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react'
 import { getRoute, navigate, pageLabel, useRoute, type PageId } from '../../lib/env'
 import { useSettings } from '../../lib/settings'
 import { useResolved } from '../../lib/theme'
@@ -28,12 +28,13 @@ export function TabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: (opene
   useKeyboardWatch()
   useSwipe(s['nav.swipe'], tabs)
   useHideOnScroll(s['nav.hideOnScroll'] && !moreOpen, page)
+  const pill = useLabelWidth(index, s['nav.labels'], tabs.join())
 
   return (
     <nav className="tabbar" aria-label="Pages">
       <GlassLayer target="navbar" bezel={14} strong />
       {/* One highlight for the whole bar: it moves with transform and is never re-mounted. */}
-      <span className="tab-pill" aria-hidden="true" data-metal={metal ? 'on' : undefined} style={{ '--tab-i': index } as CSSProperties}>
+      <span ref={pill} className="tab-pill" aria-hidden="true" data-metal={metal ? 'on' : undefined} style={{ '--tab-i': index } as CSSProperties}>
         <span className="tab-pill-shape">
           <LiquidMetalSurface target="tab" when={metal} />
         </span>
@@ -195,4 +196,31 @@ function useHideOnScroll(enabled: boolean, page: PageId) {
       show()
     }
   }, [enabled, page])
+}
+
+/**
+ * The current tab's label width, as --tab-label-w on the highlight. A long label ("Resources",
+ * or "Absences" on a 320 px screen) is wider than its column; the highlight then grows past the
+ * column so the label always sits on it (on the metal pill, it must never reach the bright rim).
+ */
+function useLabelWidth(index: number, labels: boolean, tabsKey: string) {
+  const pill = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const el = pill.current
+    const bar = el?.closest('.tabbar')
+    if (!el || !bar) return
+    const measure = () => {
+      const label = bar.querySelectorAll<HTMLElement>('.tab-label')[index]
+      el.style.setProperty('--tab-label-w', `${labels && label ? Math.ceil(label.scrollWidth) : 0}px`)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(bar)
+    document.fonts?.addEventListener('loadingdone', measure)
+    return () => {
+      ro.disconnect()
+      document.fonts?.removeEventListener('loadingdone', measure)
+    }
+  }, [index, labels, tabsKey])
+  return pill
 }

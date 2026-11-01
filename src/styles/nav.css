@@ -209,6 +209,10 @@
     color: var(--ink);
   }
 
+  :root[data-bar='floating'] .tab-label {
+    letter-spacing: 0.03em;
+  }
+
   :root[data-bar='floating'] .tab-mark {
     display: none;
   }
@@ -233,7 +237,9 @@
 
   .tab-pill-shape {
     position: absolute;
-    inset: 6px 3px;
+    /* 1 px from the column edges, or wider than the column when the label needs it
+       (--tab-label-w from TabBar; 8 px = the metal rim plus breathing room). */
+    inset: 6px min(1px, calc(50% - var(--tab-label-w, 0px) / 2 - 8px));
     /* Nested in the bar: its corner minus the 6 px inset. */
     border-radius: max(0px, calc(var(--radius-nav-px) - 6px));
     background: var(--nav-pill);

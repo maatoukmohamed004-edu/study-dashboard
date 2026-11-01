@@ -61,6 +61,8 @@ window.addEventListener('navigating', () => {
   paused = navigating()
   for (const e of entries) applySpeed(e)
 })
+// Crossing the phone breakpoint changes the budget.
+matchMedia('(max-width: 640px)').addEventListener('change', () => schedule())
 
 const io = new IntersectionObserver(
   (list) => {
