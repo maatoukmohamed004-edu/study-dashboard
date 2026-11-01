@@ -5,10 +5,10 @@ import { showToast } from '../../lib/toast'
 
 export function meets(req: Requirement | undefined): boolean {
   if (!req) return true
-  return req === 'webgl' ? caps.webgl : caps.chromium
+  return caps[req]
 }
 
-export const REQ_TEXT: Record<Requirement, string> = { webgl: 'needs WebGL', chromium: 'needs a Chromium browser' }
+export const REQ_TEXT: Record<Requirement, string> = { webgl: 'needs WebGL', webgl2: 'needs WebGL 2', chromium: 'needs a Chromium browser' }
 
 /** Whether a setting is shown: the setting it depends on has a listed value and is itself shown. */
 export function isVisible(def: SettingDef, s: Settings): boolean {

@@ -2,11 +2,14 @@ import { useRef } from 'react'
 import { exportJSON, getState, ImportError, parseBackup, replaceState } from '../lib/store'
 import { useToday } from '../lib/env'
 import { showToast } from '../lib/toast'
+import { LiquidMetalSurface } from './metal/LiquidMetalSurface'
+import { useMetalOn } from './metal/useMetalOn'
 
 /** Progress export and import. Same file format and behaviour as before the redesign. */
 export function BackupButtons() {
   const today = useToday()
   const input = useRef<HTMLInputElement>(null)
+  const metal = useMetalOn('primary') ? 'on' : undefined
 
   async function onFile(file: File | undefined) {
     if (!file) return
@@ -29,10 +32,12 @@ export function BackupButtons() {
 
   return (
     <div className="backup" role="group" aria-label="Progress backup">
-      <button type="button" className="btn" onClick={() => exportJSON(today)}>
+      <button type="button" className="btn" data-metal={metal} onClick={() => exportJSON(today)}>
+        <LiquidMetalSurface target="primary" />
         Export progress
       </button>
-      <button type="button" className="btn" onClick={() => input.current?.click()}>
+      <button type="button" className="btn" data-metal={metal} onClick={() => input.current?.click()}>
+        <LiquidMetalSurface target="primary" />
         Import progress
       </button>
       <input

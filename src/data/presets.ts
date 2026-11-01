@@ -30,7 +30,6 @@ export interface Palette {
 export interface Preset {
   id: PresetId
   label: string
-  description: string
   dark: Palette
   light: Palette
 }
@@ -65,14 +64,12 @@ export const presetList: Preset[] = [
   {
     id: 'mono-noir',
     label: 'Mono Noir',
-    description: 'Near-black, monochrome, off-white accent.',
     dark: noir,
     light: paper,
   },
   {
     id: 'midnight',
     label: 'Midnight',
-    description: 'The original deep blue and violet with a mint accent.',
     dark: {
       bg: '#070a1f',
       ink: '#f1f2ff',
@@ -101,7 +98,6 @@ export const presetList: Preset[] = [
   {
     id: 'graphite',
     label: 'Graphite',
-    description: 'Soft charcoal with a cool blue accent.',
     dark: {
       bg: '#17181b',
       ink: '#ececec',
@@ -130,7 +126,6 @@ export const presetList: Preset[] = [
   {
     id: 'high-contrast',
     label: 'High contrast',
-    description: 'Pure black and white, yellow accent, solid surfaces.',
     dark: {
       bg: '#000000',
       ink: '#ffffff',
@@ -159,7 +154,6 @@ export const presetList: Preset[] = [
   {
     id: 'light',
     label: 'Light',
-    description: 'Warm paper, black ink.',
     dark: noir,
     light: paper,
   },

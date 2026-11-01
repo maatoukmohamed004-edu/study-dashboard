@@ -1,13 +1,17 @@
 import { useEffect, useRef } from 'react'
 import { sections, settingsList, type SectionId, type SettingDef } from '../data/settings-schema'
+import { sectionHelp } from '../data/settings-text'
 import { BackupButtons } from '../components/BackupButtons'
+import { LiquidMetalSurface } from '../components/metal/LiquidMetalSurface'
+import { useMetalOn } from '../components/metal/useMetalOn'
 import { ContrastGuard } from '../components/settings/ContrastGuard'
 import { SettingControl } from '../components/settings/SettingControl'
 import { isVisible } from '../components/settings/helpers'
 import { GiantTitle, StatusStrip, Tag } from '../components/ui/Hud'
 import { caps } from '../lib/capabilities'
 import { useToday } from '../lib/env'
-import { exportSettings, getSettings, readSettingsFile, replaceSettings, resetAll, resetSection, SettingsFileError, useSettings } from '../lib/settings'
+import { getSettings, replaceSettings, resetAll, resetSection, SettingsFileError, useSettings } from '../lib/settings'
+import { exportSettings, readSettingsFile } from '../lib/settings-files'
 import { useResolved } from '../lib/theme'
 import { showToast } from '../lib/toast'
 
@@ -112,7 +116,7 @@ function SettingsSection({ id, focusable }: { id: SectionId; focusable: boolean 
           </button>
         )}
       </div>
-      <p className="settings-desc">{meta.description}</p>
+      <p className="settings-desc">{sectionHelp[id]}</p>
 
       {id === 'glass' && (
         <p className={`inline-note${r.glassNote ? '' : ' is-quiet'}`} role="status">
@@ -137,6 +141,7 @@ function SettingsSection({ id, focusable }: { id: SectionId; focusable: boolean 
               {g.name}
             </h3>
           )}
+          {g.name === 'Liquid metal' && <MetalNote />}
           <div className="settings-list">
             {g.defs.map((d) => (
               <SettingControl key={d.key} k={d.key} />
@@ -152,6 +157,28 @@ function SettingsSection({ id, focusable }: { id: SectionId; focusable: boolean 
   )
 }
 
+const METAL_LABEL = { live: 'Shader (WebGL 2)', still: 'Shader, still frame', css: 'Still metallic rim (CSS)', off: 'Off' } as const
+
+function MetalNote() {
+  const s = useSettings()
+  const r = useResolved()
+  const state = !s['metal.enabled'] || !s['metal.applyTo'].length ? 'off' : !r.metal.live ? 'css' : r.metal.still ? 'still' : 'live'
+  const note = !caps.webgl2
+    ? "WebGL 2 isn't available in this browser, so a still metallic rim (CSS) is shown and the shader settings are off."
+    : s['background.quality'] === 'low'
+      ? 'Background quality is Low, so a still metallic rim (CSS) is shown.'
+      : r.reducedMotion && !s['metal.static']
+        ? 'Reduced motion is on, so the metal holds still.'
+        : null
+  return (
+    <p className={`inline-note${note ? '' : ' is-quiet'}`} role="status">
+      <span className="label">In use: {METAL_LABEL[state]}</span>
+      {note && <span>{note}</span>}
+      {state === 'live' && <span>At most {r.phone ? 'one live surface on phones' : 'two live surfaces'}; the others show the still rim.</span>}
+    </p>
+  )
+}
+
 function Diagnostics() {
   const r = useResolved()
   return (
@@ -159,6 +186,10 @@ function Diagnostics() {
       <div>
         <dt className="label muted">WebGL</dt>
         <dd className="label">{caps.webgl ? 'Available' : 'Unavailable'}</dd>
+      </div>
+      <div>
+        <dt className="label muted">WebGL 2</dt>
+        <dd className="label">{caps.webgl2 ? 'Available' : 'Unavailable'}</dd>
       </div>
       <div>
         <dt className="label muted">Refraction (Chromium)</dt>
@@ -179,6 +210,7 @@ function Diagnostics() {
 function DataSection() {
   const today = useToday()
   const input = useRef<HTMLInputElement>(null)
+  const metal = useMetalOn('primary') ? 'on' : undefined
 
   async function onFile(file: File | undefined) {
     if (!file) return
@@ -201,10 +233,12 @@ function DataSection() {
         <h3 className="sub-title">Settings file</h3>
         <p className="setting-desc">Saved as study-dashboard-settings-{today}.json. Does not include your progress.</p>
         <div className="data-actions">
-          <button type="button" className="btn" onClick={() => exportSettings(today)}>
+          <button type="button" className="btn" data-metal={metal} onClick={() => exportSettings(today)}>
+            <LiquidMetalSurface target="primary" />
             Export settings
           </button>
-          <button type="button" className="btn" onClick={() => input.current?.click()}>
+          <button type="button" className="btn" data-metal={metal} onClick={() => input.current?.click()}>
+            <LiquidMetalSurface target="primary" />
             Import settings
           </button>
           <input ref={input} type="file" accept="application/json,.json" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => onFile(e.target.files?.[0])} />

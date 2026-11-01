@@ -7,6 +7,8 @@ import { setSetting } from '../lib/settings'
 import { useResolved } from '../lib/theme'
 import { useThisWeekStats } from '../lib/useWeekProgress'
 import { GlassLayer } from './glass/GlassLayer'
+import { LiquidMetalSurface } from './metal/LiquidMetalSurface'
+import { useMetalOn } from './metal/useMetalOn'
 import { GearIcon } from './icons'
 import { ProgressOrb } from './ProgressOrb'
 
@@ -29,6 +31,8 @@ export function Header({
   const stats = useThisWeekStats(today)
   const current = weekFor(today)
   const r = useResolved()
+  // Phones: the Quick settings gear counts as a floating button for Liquid metal.
+  const metalGear = useMetalOn('floating')
   const pct = stats.ratio === null ? null : Math.round(stats.ratio * 100)
   const navRef = useRef<HTMLElement>(null)
 
@@ -125,12 +129,14 @@ export function Header({
             <button
               type="button"
               className="square-btn tb-gear"
+              data-metal={metalGear ? 'on' : undefined}
               aria-label="Quick settings"
               aria-expanded={quickOpen}
               aria-controls={quickOpen ? 'quick-settings' : undefined}
               onClick={(e) => onQuick?.(e.currentTarget)}
             >
               <GlassLayer target="buttons" bezel={8} strengthScale={0.6} />
+              <LiquidMetalSurface target="floating" />
               <GearIcon />
             </button>
           ) : (

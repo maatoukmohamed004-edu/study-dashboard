@@ -30,13 +30,26 @@ const REDUCED_MS = 160
 
 /** The running transition, so a newer navigation can jump it to its end state. */
 let active: { finish: () => Promise<void> } | null = null
+
+/**
+ * Changes the running transition. While one runs, <html> has data-navigating and a
+ * 'navigating' event fires on each change, so lazy code (the liquid-metal shaders, which pause
+ * meanwhile) can follow without importing this module.
+ */
+function setActive(next: typeof active) {
+  const was = active !== null
+  active = next
+  if (was === (next !== null)) return
+  document.documentElement.toggleAttribute('data-navigating', next !== null)
+  window.dispatchEvent(new Event('navigating'))
+}
 /** Bumped per View Transition, so a skipped one never clears the flag of the one replacing it. */
 let vtSeq = 0
 
 /** Jumps the running transition to its end. Resolves once its overlay is gone. */
 export function skipActiveTransition(): Promise<void> {
   const a = active
-  active = null
+  setActive(null)
   return a ? a.finish() : Promise.resolve()
 }
 
@@ -106,7 +119,7 @@ function viewTransition(update: () => void, p: ReturnType<typeof plan>) {
 
   const animations: Animation[] = []
   const done = () => {
-    if (active === handle) active = null
+    if (active === handle) setActive(null)
     if (vtSeq === id) delete root.dataset.vt
     // The animations hold their end state until the snapshot is gone; release them now.
     animations.forEach((a) => a.cancel())
@@ -121,7 +134,7 @@ function viewTransition(update: () => void, p: ReturnType<typeof plan>) {
       )
     },
   }
-  active = handle
+  setActive(handle)
 
   vt.ready
     .then(() => {
@@ -191,7 +204,7 @@ function coverThenReveal(update: () => void, el: HTMLElement, duration: number, 
       return Promise.resolve()
     },
   }
-  active = handle
+  setActive(handle)
   coverAnim.finished
     .then(() => {
       swap()
@@ -200,7 +213,7 @@ function coverThenReveal(update: () => void, el: HTMLElement, duration: number, 
     })
     .then(() => {
       el.remove()
-      if (active === handle) active = null
+      if (active === handle) setActive(null)
     })
     .catch(() => {
       // Cancelled by a newer navigation: finish() already swapped and cleaned up.

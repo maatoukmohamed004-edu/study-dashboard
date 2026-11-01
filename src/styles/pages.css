@@ -1372,6 +1372,13 @@
   min-width: 0;
 }
 
+/* Switched off (needs WebGL 2): inert, and drawn as disabled without relying on colour alone. */
+.setting-control[data-off='true'] {
+  opacity: 0.5;
+  filter: grayscale(1);
+  cursor: not-allowed;
+}
+
 .setting.is-compact {
   grid-template-columns: 1fr;
   gap: 6px;

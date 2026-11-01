@@ -3,6 +3,8 @@ import { getRoute, navigate, pageLabel, useRoute, type PageId } from '../../lib/
 import { useSettings } from '../../lib/settings'
 import { useResolved } from '../../lib/theme'
 import { GlassLayer } from '../glass/GlassLayer'
+import { LiquidMetalSurface } from '../metal/LiquidMetalSurface'
+import { useMetalOn } from '../metal/useMetalOn'
 import { MoreIcon } from '../icons'
 import { PAGE_META, swipeOrder } from './pages'
 
@@ -20,6 +22,8 @@ export function TabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: (opene
   const tabs = s['nav.tabs'] as PageId[]
   const inMore = !tabs.includes(page)
   const index = inMore ? tabs.length : tabs.indexOf(page)
+  // Liquid metal on the current-tab pill (floating bar, Pill highlight only).
+  const metal = useMetalOn('tab') && s['nav.barStyle'] === 'floating' && s['nav.highlight'] === 'pill'
 
   useKeyboardWatch()
   useSwipe(s['nav.swipe'], tabs)
@@ -29,8 +33,10 @@ export function TabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: (opene
     <nav className="tabbar" aria-label="Pages">
       <GlassLayer target="navbar" bezel={14} strong />
       {/* One highlight for the whole bar: it moves with transform and is never re-mounted. */}
-      <span className="tab-pill" aria-hidden="true" style={{ '--tab-i': index } as CSSProperties}>
-        <span className="tab-pill-shape" />
+      <span className="tab-pill" aria-hidden="true" data-metal={metal ? 'on' : undefined} style={{ '--tab-i': index } as CSSProperties}>
+        <span className="tab-pill-shape">
+          <LiquidMetalSurface target="tab" when={metal} />
+        </span>
       </span>
       <ul className="tabbar-list">
         {tabs.map((id) => {
@@ -39,7 +45,7 @@ export function TabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: (opene
           return (
             <li key={id}>
               <a
-                className="tab"
+                className={metal ? 'tab tab-metal' : 'tab'}
                 href={`#/${id}`}
                 aria-current={current ? 'page' : undefined}
                 onClick={(e) => {
@@ -59,7 +65,7 @@ export function TabBar({ moreOpen, onMore }: { moreOpen: boolean; onMore: (opene
         <li>
           <button
             type="button"
-            className="tab tab-more"
+            className={metal ? 'tab tab-more tab-metal' : 'tab tab-more'}
             data-active={inMore ? 'true' : undefined}
             aria-haspopup="dialog"
             aria-expanded={moreOpen}

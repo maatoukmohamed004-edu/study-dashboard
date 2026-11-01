@@ -3,9 +3,10 @@
  * The Settings page and the quick drawer are generated from this file:
  * to add a setting, add one entry here (and read it with useSetting/useResolved).
  *
- * Each entry: key, section, label, description, control, default,
+ * Each entry: key, section, label, control, default,
  * min/max/step for ranges, options for choices, dependsOn (only shown when
- * another setting has one of the listed values) and requires (webgl | chromium).
+ * another setting has one of the listed values) and requires (webgl | webgl2 | chromium).
+ * Help text lives in settings-text.ts, which only the (lazy) Settings UI loads.
  */
 import { presetBundles, presetList, type PresetId } from './presets'
 
@@ -24,6 +25,8 @@ export type NavTransition = 'reveal' | 'wash' | 'fade' | 'none'
 export type NavOrigin = 'press' | 'center'
 export type BarStyle = 'floating' | 'docked'
 export type TabHighlight = 'pill' | 'underline'
+export type MetalTarget = 'tab' | 'primary' | 'floating'
+export type MetalTint = 'silver' | 'warm' | 'cool' | 'accent'
 /** Appearance → Roundness presets; 'custom' = the master slider is at another value. */
 export type Roundness = 'square' | 'soft' | 'rounded' | 'very' | 'pill' | 'custom'
 /** Per-group override when "Link all to master" is off. */
@@ -51,6 +54,13 @@ export interface Settings {
   'appearance.radiusInputs': RadiusOverride
   'appearance.radiusSheets': RadiusOverride
   'appearance.radiusHud': RadiusOverride
+  'metal.enabled': boolean
+  'metal.applyTo': MetalTarget[]
+  'metal.tint': MetalTint
+  /** Animation speed at rest and under the pointer or focus (shader time multiplier). */
+  'metal.speed': number
+  'metal.hoverSpeed': number
+  'metal.static': boolean
   'appearance.monoUppercase': boolean
   'appearance.displayFont': DisplayFont
   'background.type': BgType
@@ -109,20 +119,20 @@ export type SettingKey = keyof Settings
 
 export type SectionId = 'appearance' | 'background' | 'glass' | 'hud' | 'navigation' | 'motion' | 'diagnostics' | 'data'
 
-export const sections: { id: SectionId; label: string; description: string }[] = [
-  { id: 'appearance', label: 'Appearance', description: 'Preset, colours, type and shape.' },
-  { id: 'background', label: 'Background', description: 'What sits behind the pages, and how hard the 3D works.' },
-  { id: 'glass', label: 'Glass', description: 'Frosted and refracting surfaces on the header, the phone tab bar, cards and buttons.' },
-  { id: 'hud', label: 'HUD & layout', description: 'Frame, brackets, grid, caption and the header orb.' },
-  { id: 'navigation', label: 'Navigation', description: 'The page-change animation, and the tab bar on phones.' },
-  { id: 'motion', label: 'Motion', description: 'How much moves, and how fast.' },
-  { id: 'diagnostics', label: 'Simulation & diagnostics', description: 'Preview another date and time, or count frames.' },
-  { id: 'data', label: 'Data', description: 'Back up, restore or reset your settings and progress.' },
+export const sections: { id: SectionId; label: string }[] = [
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'background', label: 'Background' },
+  { id: 'glass', label: 'Glass' },
+  { id: 'hud', label: 'HUD & layout' },
+  { id: 'navigation', label: 'Navigation' },
+  { id: 'motion', label: 'Motion' },
+  { id: 'diagnostics', label: 'Simulation & diagnostics' },
+  { id: 'data', label: 'Data' },
 ]
 
 // ─── Entry types ────────────────────────────────────────────────────────────
 
-export type Requirement = 'webgl' | 'chromium'
+export type Requirement = 'webgl' | 'webgl2' | 'chromium'
 
 export interface Option {
   value: string
@@ -135,7 +145,6 @@ interface Common<K extends SettingKey> {
   key: K
   section: SectionId
   label: string
-  description?: string
   default: Settings[K]
   /** Only shown when the other setting currently has one of these values. */
   dependsOn?: { key: SettingKey; is: readonly (string | boolean)[] }
@@ -189,10 +198,9 @@ const UNLINKED = { key: 'appearance.radiusLink', is: [false] } as const
 function radiusOverride<K extends 'appearance.radiusNav' | 'appearance.radiusCards' | 'appearance.radiusButtons' | 'appearance.radiusInputs' | 'appearance.radiusSheets' | 'appearance.radiusHud'>(
   key: K,
   label: string,
-  description: string,
   def: RadiusOverride = 'master',
 ) {
-  return { key, section: 'appearance', group: 'Roundness', label, description, control: 'select', options: OVERRIDE_OPTIONS, default: def, dependsOn: UNLINKED } as const
+  return { key, section: 'appearance', group: 'Roundness', label, control: 'select', options: OVERRIDE_OPTIONS, default: def, dependsOn: UNLINKED } as const
 }
 const DISC = ['reveal', 'wash'] as const
 
@@ -216,9 +224,8 @@ export const schema = {
     key: 'appearance.preset',
     section: 'appearance',
     label: 'Preset',
-    description: 'A starting point for colours, background and glass. You can change anything afterwards.',
     control: 'select',
-    options: presetList.map((p) => ({ value: p.id, label: p.label, description: p.description })),
+    options: presetList.map((p) => ({ value: p.id, label: p.label })),
     default: 'mono-noir',
     quick: true,
     undo: true,
@@ -228,7 +235,6 @@ export const schema = {
     key: 'appearance.colorMode',
     section: 'appearance',
     label: 'Color mode',
-    description: 'System follows your device setting.',
     control: 'segmented',
     options: [
       { value: 'dark', label: 'Dark' },
@@ -242,7 +248,6 @@ export const schema = {
     key: 'appearance.accent',
     section: 'appearance',
     label: 'Accent color',
-    description: 'Used for progress, the current page and primary buttons.',
     control: 'color',
     swatches: ['#f2f0ea', '#79e3c5', '#8ec5ff', '#ffe500', '#ff9f6b', '#c9a7ff'],
     nullLabel: 'Preset',
@@ -253,7 +258,6 @@ export const schema = {
     key: 'appearance.background',
     section: 'appearance',
     label: 'Background color',
-    description: 'The page colour. Surfaces and lines are derived from it.',
     control: 'color',
     swatches: ['#0a0a0a', '#070a1f', '#17181b', '#000000', '#f4f1ea'],
     nullLabel: 'Preset',
@@ -285,7 +289,6 @@ export const schema = {
     key: 'appearance.monoUppercase',
     section: 'appearance',
     label: 'Uppercase mono labels',
-    description: 'Small labels, tags and captions in capitals.',
     control: 'toggle',
     default: true,
   },
@@ -293,7 +296,6 @@ export const schema = {
     key: 'appearance.displayFont',
     section: 'appearance',
     label: 'Display font',
-    description: 'The condensed face for big numbers and headings.',
     control: 'segmented',
     options: [
       { value: 'sofia', label: 'Sofia Sans' },
@@ -307,7 +309,6 @@ export const schema = {
     section: 'appearance',
     group: 'Roundness',
     label: 'Roundness',
-    description: 'Sets the corner radius below. Pill also makes buttons, chips and fields fully round.',
     control: 'segmented',
     options: [...ROUND_OPTIONS, { value: 'custom', label: 'Custom' }],
     default: 'square',
@@ -318,7 +319,6 @@ export const schema = {
     section: 'appearance',
     group: 'Roundness',
     label: 'Corner radius',
-    description: 'The master value. Cards use it as is; buttons, fields and small marks use a share of it.',
     control: 'range',
     min: 0,
     max: 40,
@@ -332,16 +332,90 @@ export const schema = {
     section: 'appearance',
     group: 'Roundness',
     label: 'Link all to master',
-    description: 'On: every group follows the master radius, and the floating tab bar stays a pill. Off: set each group below.',
     control: 'toggle',
     default: true,
   },
-  'appearance.radiusNav': radiusOverride('appearance.radiusNav', 'Navigation bar', 'The floating tab bar on phones and its "More" panel. The docked bar stays square.', 'pill'),
-  'appearance.radiusCards': radiusOverride('appearance.radiusCards', 'Cards & panels', 'Cards, chart frames, notes and the week’s blocks.'),
-  'appearance.radiusButtons': radiusOverride('appearance.radiusButtons', 'Buttons & chips', 'Buttons, square icon buttons, chips, tags and badges.'),
-  'appearance.radiusInputs': radiusOverride('appearance.radiusInputs', 'Inputs', 'Text fields, selects, segmented switches and checkboxes.'),
-  'appearance.radiusSheets': radiusOverride('appearance.radiusSheets', 'Sheets & dialogs', 'The quick-settings drawer, the "More" sheet, toasts and tooltips.'),
-  'appearance.radiusHud': radiusOverride('appearance.radiusHud', 'HUD frame', 'The double hairline frame and its corner brackets.'),
+  'appearance.radiusNav': radiusOverride('appearance.radiusNav', 'Navigation bar', 'pill'),
+  'appearance.radiusCards': radiusOverride('appearance.radiusCards', 'Cards & panels'),
+  'appearance.radiusButtons': radiusOverride('appearance.radiusButtons', 'Buttons & chips'),
+  'appearance.radiusInputs': radiusOverride('appearance.radiusInputs', 'Inputs'),
+  'appearance.radiusSheets': radiusOverride('appearance.radiusSheets', 'Sheets & dialogs'),
+  'appearance.radiusHud': radiusOverride('appearance.radiusHud', 'HUD frame'),
+  'metal.enabled': {
+    key: 'metal.enabled',
+    section: 'appearance',
+    group: 'Liquid metal',
+    label: 'Liquid metal',
+    control: 'toggle',
+    default: true,
+  },
+  'metal.applyTo': {
+    key: 'metal.applyTo',
+    section: 'appearance',
+    group: 'Liquid metal',
+    label: 'Apply to',
+    control: 'checkboxes',
+    options: [
+      { value: 'tab', label: 'Selected tab (tab bar)' },
+      { value: 'primary', label: 'Primary buttons (Start, Export, Import)' },
+      { value: 'floating', label: 'Floating buttons (Quick settings, Back to top)' },
+    ],
+    default: ['tab'],
+    dependsOn: { key: 'metal.enabled', is: [true] },
+  },
+  'metal.tint': {
+    key: 'metal.tint',
+    section: 'appearance',
+    group: 'Liquid metal',
+    label: 'Tint',
+    control: 'segmented',
+    options: [
+      { value: 'silver', label: 'Silver' },
+      { value: 'warm', label: 'Warm' },
+      { value: 'cool', label: 'Cool' },
+      { value: 'accent', label: 'Accent' },
+    ],
+    default: 'silver',
+    dependsOn: { key: 'metal.enabled', is: [true] },
+  },
+  'metal.speed': {
+    key: 'metal.speed',
+    section: 'appearance',
+    group: 'Liquid metal',
+    label: 'Idle speed',
+    control: 'range',
+    min: 0.1,
+    max: 2,
+    step: 0.1,
+    unit: '×',
+    default: 0.6,
+    requires: 'webgl2',
+    dependsOn: { key: 'metal.static', is: [false] },
+  },
+  'metal.hoverSpeed': {
+    key: 'metal.hoverSpeed',
+    section: 'appearance',
+    group: 'Liquid metal',
+    label: 'Hover speed',
+    control: 'range',
+    min: 0.1,
+    max: 3,
+    step: 0.1,
+    unit: '×',
+    default: 1,
+    requires: 'webgl2',
+    dependsOn: { key: 'metal.static', is: [false] },
+  },
+  'metal.static': {
+    key: 'metal.static',
+    section: 'appearance',
+    group: 'Liquid metal',
+    label: 'Static (no animation)',
+    control: 'toggle',
+    default: false,
+    requires: 'webgl2',
+    dependsOn: { key: 'metal.enabled', is: [true] },
+  },
 
   // Background
   'background.type': {
@@ -354,8 +428,8 @@ export const schema = {
       { value: 'solid', label: 'Solid' },
       { value: 'gradient', label: 'Static gradient' },
       { value: 'dots', label: 'Dot grid' },
-      { value: 'animated', label: 'Animated gradient', description: 'ShaderGradient (3D).', requires: 'webgl' },
-      { value: 'dither', label: 'Dithered sphere', description: 'A 3D sphere in the page header, with a lens that follows your cursor.', requires: 'webgl' },
+      { value: 'animated', label: 'Animated gradient', requires: 'webgl' },
+      { value: 'dither', label: 'Dithered sphere', requires: 'webgl' },
     ],
     default: 'dither',
     quick: true,
@@ -406,7 +480,6 @@ export const schema = {
     key: 'background.grain',
     section: 'background',
     label: 'Grain',
-    description: 'Film grain over the background.',
     control: 'range',
     min: 0,
     max: 100,
@@ -418,7 +491,6 @@ export const schema = {
     key: 'background.quality',
     section: 'background',
     label: 'Quality',
-    description: 'Auto lowers the resolution when the frame rate drops.',
     control: 'segmented',
     options: [
       { value: 'auto', label: 'Auto' },
@@ -440,7 +512,6 @@ export const schema = {
     key: 'background.allow3dPhone',
     section: 'background',
     label: 'Allow 3D on phones',
-    description: 'Off by default: 3D drains battery and can stutter on phones.',
     control: 'toggle',
     default: false,
     dependsOn: { key: 'background.type', is: ON_WEBGL },
@@ -454,13 +525,12 @@ export const schema = {
     quickLabel: 'Glass',
     control: 'select',
     options: [
-      { value: 'off', label: 'Off', description: 'Solid surfaces.' },
-      { value: 'blur', label: 'Frosted blur', description: 'CSS backdrop blur. Works in every modern browser.' },
-      { value: 'refraction', label: 'Refraction', description: 'Blur plus a lens at the edges (SVG displacement).', requires: 'chromium' },
+      { value: 'off', label: 'Off' },
+      { value: 'blur', label: 'Frosted blur' },
+      { value: 'refraction', label: 'Refraction', requires: 'chromium' },
       {
         value: 'liquid',
         label: 'Experimental: liquid-glass-js',
-        description: 'Samples the page once, so it goes stale over moving backgrounds.',
         requires: 'webgl',
       },
     ],
@@ -495,7 +565,6 @@ export const schema = {
     key: 'glass.tint',
     section: 'glass',
     label: 'Tint opacity',
-    description: 'How much of the page colour covers what is behind the glass. Higher is easier to read.',
     control: 'range',
     min: 20,
     max: 95,
@@ -535,7 +604,7 @@ export const schema = {
     control: 'checkboxes',
     options: [
       { value: 'header', label: 'Header' },
-      { value: 'navbar', label: 'Navigation bar', description: 'The tab bar and "More" panel on phones.' },
+      { value: 'navbar', label: 'Navigation bar (phones)' },
       { value: 'cards', label: 'Cards' },
       { value: 'buttons', label: 'Buttons' },
     ],
@@ -544,14 +613,13 @@ export const schema = {
   },
 
   // HUD & layout
-  'hud.frame': { key: 'hud.frame', section: 'hud', label: 'Frame', description: 'Double hairline border around the app.', control: 'toggle', default: true },
+  'hud.frame': { key: 'hud.frame', section: 'hud', label: 'Frame', control: 'toggle', default: true },
   'hud.corners': { key: 'hud.corners', section: 'hud', label: 'Corner brackets', control: 'toggle', default: true },
   'hud.grid': { key: 'hud.grid', section: 'hud', label: 'Background grid', control: 'toggle', default: true },
   'hud.caption': {
     key: 'hud.caption',
     section: 'hud',
     label: 'Bottom caption',
-    description: 'The status line in the bottom-left corner.',
     control: 'toggle',
     default: true,
   },
@@ -559,7 +627,6 @@ export const schema = {
     key: 'hud.orb',
     section: 'hud',
     label: 'Header orb',
-    description: "Shows this week's blocks-done percentage.",
     control: 'toggle',
     default: true,
   },
@@ -581,7 +648,6 @@ export const schema = {
     key: 'motion.mode',
     section: 'motion',
     label: 'Motion',
-    description: 'Auto follows your device setting for reduced motion.',
     control: 'segmented',
     options: [
       { value: 'auto', label: 'Auto' },
@@ -609,13 +675,12 @@ export const schema = {
     key: 'nav.transition',
     section: 'navigation',
     label: 'Page transition',
-    description: 'What happens when you change page.',
     control: 'select',
     options: [
-      { value: 'reveal', label: 'Disc reveal', description: 'The new page opens inside a soft disc that grows from where you pressed.' },
-      { value: 'wash', label: 'Disc wash', description: 'An accent-tinted disc covers the page, the page changes underneath, then the disc fades.' },
+      { value: 'reveal', label: 'Disc reveal' },
+      { value: 'wash', label: 'Disc wash' },
       { value: 'fade', label: 'Crossfade' },
-      { value: 'none', label: 'None', description: 'Change instantly.' },
+      { value: 'none', label: 'None' },
     ],
     default: 'reveal',
   },
@@ -623,7 +688,6 @@ export const schema = {
     key: 'nav.duration',
     section: 'navigation',
     label: 'Duration',
-    description: 'At animation speed 1×. Reduced motion always uses a short crossfade.',
     control: 'range',
     min: 300,
     max: 1200,
@@ -636,7 +700,6 @@ export const schema = {
     key: 'nav.softness',
     section: 'navigation',
     label: 'Edge softness',
-    description: '0% is a hard circle; higher feathers the edge of the disc.',
     control: 'range',
     min: 0,
     max: 100,
@@ -661,7 +724,6 @@ export const schema = {
     key: 'nav.bottomBar',
     section: 'navigation',
     label: 'Tab bar on phones',
-    description: 'Navigation at the bottom of the screen, within thumb reach. Off brings back the scrolling top bar.',
     control: 'toggle',
     default: true,
   },
@@ -669,7 +731,6 @@ export const schema = {
     key: 'nav.labels',
     section: 'navigation',
     label: 'Tab labels',
-    description: 'Words under the tab icons. Screen readers hear them either way.',
     control: 'toggle',
     default: true,
     dependsOn: { key: 'nav.bottomBar', is: [true] },
@@ -678,7 +739,6 @@ export const schema = {
     key: 'nav.swipe',
     section: 'navigation',
     label: 'Swipe between pages',
-    description: 'Swipe left or right to move between tabs. Ignored inside areas that scroll sideways.',
     control: 'toggle',
     default: false,
     dependsOn: { key: 'nav.bottomBar', is: [true] },
@@ -687,7 +747,6 @@ export const schema = {
     key: 'nav.barStyle',
     section: 'navigation',
     label: 'Tab bar style',
-    description: 'Floating: a glass pill above the bottom edge, with the page scrolling behind it. Docked: the full-width bar along the bottom.',
     control: 'segmented',
     options: [
       { value: 'floating', label: 'Floating' },
@@ -712,7 +771,6 @@ export const schema = {
     key: 'nav.barGap',
     section: 'navigation',
     label: 'Bottom gap',
-    description: 'Added to the space phones keep for the home indicator.',
     control: 'range',
     min: 0,
     max: 32,
@@ -725,7 +783,6 @@ export const schema = {
     key: 'nav.highlight',
     section: 'navigation',
     label: 'Current tab',
-    description: 'How the floating bar marks the current page. The label is bold either way.',
     control: 'segmented',
     options: [
       { value: 'pill', label: 'Pill' },
@@ -738,7 +795,6 @@ export const schema = {
     key: 'nav.hideOnScroll',
     section: 'navigation',
     label: 'Hide while scrolling down',
-    description: 'The bar slides away as you scroll down and comes back as soon as you scroll up.',
     control: 'toggle',
     default: false,
     dependsOn: { key: 'nav.bottomBar', is: [true] },
@@ -747,7 +803,6 @@ export const schema = {
     key: 'nav.tabs',
     section: 'navigation',
     label: 'Tabs',
-    description: 'The four pages in the tab bar, left to right. Everything else goes to "More".',
     control: 'tabs',
     options: NAV_PAGES,
     count: 4,
@@ -761,7 +816,6 @@ export const schema = {
     key: 'sim.enabled',
     section: 'diagnostics',
     label: 'Simulate a date and time',
-    description: 'Every page behaves as if it were that moment. A banner stays on screen while this is on.',
     control: 'toggle',
     default: false,
   },
@@ -777,7 +831,6 @@ export const schema = {
     key: 'sim.time',
     section: 'diagnostics',
     label: 'Simulated time',
-    description: 'Leave empty to use the real time of day.',
     control: 'time',
     default: '',
     dependsOn: { key: 'sim.enabled', is: [true] },
@@ -786,7 +839,6 @@ export const schema = {
     key: 'diag.fps',
     section: 'diagnostics',
     label: 'FPS counter',
-    description: 'Frames per second, bottom-right. Use it to check smoothness on your own machine.',
     control: 'toggle',
     default: false,
   },

@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import { useSettings } from '../../lib/settings'
-import { autoFix, contrastChecks, useResolved } from '../../lib/theme'
+import { autoFix, contrastChecks } from '../../lib/contrast'
+import { useResolved } from '../../lib/theme'
 import { applyPatch } from './helpers'
 
 /** Live WCAG check of the colours in force, with a one-click repair. */

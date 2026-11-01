@@ -1,10 +1,10 @@
 /** What this browser and device can do. Read once; media queries are live. */
 import { useSyncExternalStore } from 'react'
 
-function detectWebGL(): boolean {
+function detectWebGL(version: 'webgl' | 'webgl2'): boolean {
   try {
     const c = document.createElement('canvas')
-    const gl = (c.getContext('webgl2') || c.getContext('webgl')) as WebGLRenderingContext | null
+    const gl = (version === 'webgl2' ? c.getContext('webgl2') : c.getContext('webgl2') || c.getContext('webgl')) as WebGLRenderingContext | null
     gl?.getExtension('WEBGL_lose_context')?.loseContext()
     return !!gl
   } catch {
@@ -32,7 +32,9 @@ function detectBackdrop(): boolean {
 }
 
 export const caps = {
-  webgl: detectWebGL(),
+  webgl: detectWebGL('webgl'),
+  /** The liquid-metal shader needs WebGL 2. */
+  webgl2: detectWebGL('webgl2'),
   /** SVG filters in backdrop-filter (the refraction) only work in Chromium. */
   chromium: detectChromium(),
   /** backdrop-filter at all (glass needs it; without it surfaces fall back to a solid tint). */

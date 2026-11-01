@@ -216,7 +216,7 @@ const ok = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'}  
   // v1 → v2: the tab bar keeps the glass it had through "Header"; a saved radius maps to its preset
   t = await importFile('v1.json', JSON.stringify({ kind: 'study-dashboard-settings', version: 1, values: { 'appearance.preset': 'midnight', 'glass.applyTo': ['header', 'buttons'], 'appearance.radius': 8 } }));
   const v2 = await page.evaluate(() => JSON.parse(localStorage.getItem('study-dashboard:settings:v1')));
-  ok('v1 file migrates to v2 per key', v2.version === 2 && v2.values['glass.applyTo'].includes('navbar') && v2.values['glass.applyTo'].length === 3 && v2.values['appearance.roundness'] === 'soft' && v2.values['appearance.radiusLink'] === true, JSON.stringify({ a: v2.values['glass.applyTo'], r: v2.values['appearance.roundness'] }));
+  ok('v1 file migrates to v2 per key', v2.version === 2 && v2.values['glass.applyTo'].includes('navbar') && v2.values['glass.applyTo'].length === 3 && v2.values['appearance.roundness'] === 'soft' && v2.values['appearance.radiusLink'] === true && v2.values['nav.barStyle'] === 'floating' && v2.values['metal.enabled'] === true, JSON.stringify({ a: v2.values['glass.applyTo'], r: v2.values['appearance.roundness'] }));
   t = await importFile('v1b.json', JSON.stringify({ kind: 'study-dashboard-settings', version: 1, values: { 'glass.applyTo': ['cards'], 'appearance.radius': 14 } }));
   const v2b = await page.evaluate(() => JSON.parse(localStorage.getItem('study-dashboard:settings:v1')).values);
   ok('v1 without Header glass stays without navbar glass; radius 14 → Custom', v2b['glass.applyTo'].join() === 'cards' && v2b['appearance.roundness'] === 'custom');

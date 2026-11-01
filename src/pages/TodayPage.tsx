@@ -2,6 +2,8 @@ import { useMemo, useState, type CSSProperties } from 'react'
 import { badDay, doFirst, everyDay, examMode, goal, moduleById, planStart, sundayCheck, type FixedDate } from '../data/plan'
 import { Rich } from '../components/Rich'
 import { GlassLayer } from '../components/glass/GlassLayer'
+import { LiquidMetalSurface } from '../components/metal/LiquidMetalSurface'
+import { useMetalOn } from '../components/metal/useMetalOn'
 import { Chevron, Diamond } from '../components/icons'
 import { Hero, StatusStrip } from '../components/ui/Hud'
 import { addDays, at, daysBetween, durationLabel, hhmm, isoWeekday, minutesOf, shortLabel, toISO, weekdayName } from '../lib/dates'
@@ -280,6 +282,7 @@ function Time({ start, end }: { start: string; end?: string }) {
 function BlockRow({ date, block, log, canStart, clock, isNext }: { date: string; block: ScheduledBlock; log: BlockLog | undefined; canStart: boolean; clock: Date; isNext: boolean }) {
   const started = log?.startedAt !== undefined
   const done = !!log?.done
+  const metal = useMetalOn('primary')
   const mod = block.module ? moduleById[block.module] : undefined
   const style = { '--mod': block.module ? `var(--m-${block.module})` : 'var(--ink-2)' } as CSSProperties
   const length = block.end ? minutesOf(block.end) - minutesOf(block.start) : null
@@ -321,7 +324,8 @@ function BlockRow({ date, block, log, canStart, clock, isNext }: { date: string;
         ) : (
           canStart &&
           !done && (
-            <button type="button" className="btn btn-start" onClick={start} aria-label={`Start ${block.title}, planned ${block.start}`}>
+            <button type="button" className="btn btn-start" data-metal={metal ? 'on' : undefined} onClick={start} aria-label={`Start ${block.title}, planned ${block.start}`}>
+              <LiquidMetalSurface target="primary" />
               Start
             </button>
           )

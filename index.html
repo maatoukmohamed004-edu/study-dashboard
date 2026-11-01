@@ -9,6 +9,9 @@
     <meta name="color-scheme" content="dark" />
   </head>
   <body>
+    <!-- Empty on purpose: @paper-design/shaders injects its own <style> into <head> unless one with
+         this attribute already exists. The liquid-metal rules live in src/styles/metal.css. -->
+    <style data-paper-shader></style>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

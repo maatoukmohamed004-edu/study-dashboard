@@ -6,6 +6,8 @@ import { useThisWeekStats } from '../../lib/useWeekProgress'
 import { planStart } from '../../data/plan'
 import { shortLabel } from '../../lib/dates'
 import { GlassLayer } from '../glass/GlassLayer'
+import { LiquidMetalSurface } from '../metal/LiquidMetalSurface'
+import { useMetalOn } from '../metal/useMetalOn'
 import { ArrowUpIcon, SlidersIcon } from '../icons'
 
 /** Grid, the "desk" mats outside the frame, the double hairline frame and the corner brackets. */
@@ -58,6 +60,7 @@ export function Caption({ page }: { page: PageId }) {
 /** Square floating buttons, bottom-right: back to top, and quick settings. */
 export function FabStack({ quickOpen, onQuick, showQuick = true }: { quickOpen: boolean; onQuick: (opener: HTMLElement) => void; showQuick?: boolean }) {
   const r = useResolved()
+  const metal = useMetalOn('floating') ? 'on' : undefined
   const [scrolled, setScrolled] = useState(false)
   const [focused, setFocused] = useState(false)
 
@@ -74,6 +77,7 @@ export function FabStack({ quickOpen, onQuick, showQuick = true }: { quickOpen: 
         <button
           type="button"
           className="square-btn"
+          data-metal={metal}
           aria-label="Back to top"
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
@@ -83,12 +87,14 @@ export function FabStack({ quickOpen, onQuick, showQuick = true }: { quickOpen: 
           }}
         >
           <GlassLayer target="buttons" bezel={8} strengthScale={0.6} />
+          <LiquidMetalSurface target="floating" />
           <ArrowUpIcon />
         </button>
       )}
       {showQuick && (
-        <button type="button" className="square-btn" aria-label="Quick settings" aria-expanded={quickOpen} aria-controls="quick-settings" onClick={(e) => onQuick(e.currentTarget)}>
+        <button type="button" className="square-btn" data-metal={metal} aria-label="Quick settings" aria-expanded={quickOpen} aria-controls="quick-settings" onClick={(e) => onQuick(e.currentTarget)}>
           <GlassLayer target="buttons" bezel={8} strengthScale={0.6} />
+          <LiquidMetalSurface target="floating" />
           <SlidersIcon />
         </button>
       )}

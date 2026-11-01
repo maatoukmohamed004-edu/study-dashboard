@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import { presetById } from '../../data/presets'
 import { schema, type SettingDef, type SettingKey } from '../../data/settings-schema'
+import { settingHelp } from '../../data/settings-text'
 import { normalizeHex } from '../../lib/color'
 import { getSettings, replaceSettings, setSetting, useSettings } from '../../lib/settings'
 import { meets, REQ_TEXT } from './helpers'
@@ -15,7 +16,8 @@ export function SettingControl({ k, compact = false }: { k: SettingKey; compact?
   const id = useId()
   const value = s[k]
   const labelId = `${id}-label`
-  const descId = def.description ? `${id}-desc` : undefined
+  const help = settingHelp[k]
+  const descId = help ? `${id}-desc` : undefined
 
   function write(v: unknown) {
     if (def.undo) {
@@ -151,14 +153,17 @@ export function SettingControl({ k, compact = false }: { k: SettingKey; compact?
             {label}
           </p>
         )}
-        {def.description && !compact && (
+        {help && !compact && (
           <p id={descId} className="setting-desc">
-            {def.description}
+            {help}
           </p>
         )}
         {unmet && <p className="setting-note">Not available here: {REQ_TEXT[def.requires!]}.</p>}
       </div>
-      <div className="setting-control">{control}</div>
+      {/* Shader-only settings can't do anything without WebGL 2: shown, but switched off. */}
+      <div className="setting-control" inert={unmet && def.requires === 'webgl2'} data-off={unmet && def.requires === 'webgl2' ? 'true' : undefined}>
+        {control}
+      </div>
     </div>
   )
 }
