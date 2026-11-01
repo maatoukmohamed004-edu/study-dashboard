@@ -213,7 +213,7 @@ tools/verify/               headless-Chromium checks (dev only, not shipped): se
   matrix.cjs                screenshots + pixel contrast (phones: safe-area insets; ":sheet" opens More);
                             modes all | presets | glass | phone (390/360) | variants (bar, roundness, glass, metal,
                             worst-case white/black block behind the bar)
-  settings-e2e.cjs          74 settings checks (incl. roundness and the v1 → v2 migration)
+  settings-e2e.cjs          73 settings checks (incl. roundness and the v1 → v2 migration)
   nav-e2e.cjs               tab bar (floating + docked), More panel, focus, scroll restore, keyboard, swipe,
                             hide on scroll, map rebuild on resize, transition settings
   metal-e2e.cjs             liquid metal: budget, fallbacks, still frames, pause, persistence, a11y, contrast
@@ -540,9 +540,11 @@ floating back-to-top / quick-settings buttons and the phone's Quick settings gea
 - **Engine** (`metalEngine.ts`, lazy chunk, ~10 kB gz): `attach(el, rim, kind, params)`.
   - Budget: `maxLive()` = 1 at ≤ 640 px, else 2. Priority tab 3 > floating 2 > primary 1;
     visibility from an IntersectionObserver (120 px margin); `allocate()` runs once per frame.
-  - `new ShaderMount(rim, liquidMetalFragmentShader, uniforms, {low-power, no AA}, 0,
-    4200, minPixelRatio 1, maxPixelCount = w·h·1.5²)` (≤ 360 k px). The library pauses
-    off-screen and in hidden tabs; the engine sets speed 0 while `data-navigating`.
+  - `new ShaderMount(rim, liquidMetalFragmentShader, uniforms, {low-power, no AA}, speed 0,
+    frame, minPixelRatio 1, maxPixelCount = w·h·1.5²)` (≤ 360 k px). The library's own loop
+    never runs: ONE shared ticker calls `setFrame()` at most 30 times a second per canvas and
+    stops when nothing animates (off-screen, hidden tab, `data-navigating`, Static, reduced
+    motion). The speed in force is mirrored to `.lm[data-speed]`.
   - A throw (no WebGL 2, compile error) or `webglcontextlost` marks the surface failed: CSS rim
     for good.
   - Speeds: idle `metal.speed`, hover/focus `metal.hoverSpeed`, press (pointerdown,
@@ -600,7 +602,7 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
    the dev server for screenshots (see trap 8 in §12).
 3. One-time setup for the checks: `npm i --no-save playwright pngjs && npx playwright install
    chromium`.
-4. `node tools/verify/settings-e2e.cjs` (74 checks): every control applies live without a
+4. `node tools/verify/settings-e2e.cjs` (73 checks): every control applies live without a
    reload, roundness presets/Pill/overrides, persistence, cross-tab sync, export/import, corrupt
    and partial imports, both migrations, reset with undo, the drawer, blocked storage, the
    progress key untouched, no console errors. `nav-e2e.cjs` (67) covers the bar, the panel and
@@ -718,7 +720,12 @@ Earlier, at the end of phase 2: 78/78 matrix shots, 17,890 text runs, 0 below AA
 25. **Paper Shaders injects a `<style>` into `<head>`** unless `style[data-paper-shader]` exists
     somewhere. The empty one in index.html must stay; its rules are in metal.css. The library
     also puts `data-paper-shader` and a `paperShaderMount` property on the rim element (tests use
-    `rim.paperShaderMount.getCurrentFrame()` / `.currentSpeed`).
+    `rim.paperShaderMount.getCurrentFrame()`; the speed is `.lm[data-speed]`, because the
+    library's own speed stays 0).
+28. **Software WebGL makes a running shader expensive in tests.** With the shader at 60 fps,
+    CDP touch events slowed enough (~850 ms for a 3-step flick) that the swipe test read as a
+    pan. The 30 fps shared ticker helped, and the test now flicks in two moves; keep animated
+    canvases capped.
 26. **Shader budget in tests:** floating buttons outrank primary buttons, so on a desktop page
     with all targets on, scrolling (which shows back-to-top) moves both canvases to the floating
     buttons. And a real click on Start starts the block (the button disappears); hover/press

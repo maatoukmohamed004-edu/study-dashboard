@@ -5,9 +5,12 @@
  *
  * Budget: at most MAX_LIVE canvases (1 on phones, 2 elsewhere). Surfaces register with a priority
  * (selected tab > floating buttons > primary buttons); the visible ones with the highest priority
- * get a canvas, the others keep the CSS rim that is always painted underneath. Canvases pause
- * off-screen (the library's IntersectionObserver), while the tab is hidden, and during page
- * transitions. A failed or lost WebGL context drops that surface back to the CSS rim for good.
+ * get a canvas, the others keep the CSS rim that is always painted underneath.
+ *
+ * Frames: the library's own loop is never started (speed 0). One shared ticker draws each live
+ * canvas at most FPS times a second with setFrame(), and stops entirely while nothing animates:
+ * off-screen, tab hidden, during page transitions, Static or reduced motion. A failed or lost
+ * WebGL context drops that surface back to the CSS rim for good.
  */
 import { liquidMetalFragmentShader, ShaderMount } from '@paper-design/shaders'
 import type { MetalTint } from '../../data/settings-schema'
@@ -37,6 +40,9 @@ interface Entry {
   failed: boolean
   params: MetalParams
   mount: ShaderMount | null
+  /** Shader time (ms) and when it was last drawn. */
+  frame: number
+  lastDraw: number
   hovered: boolean
   boostUntil: number
   boostTimer: number
@@ -49,6 +55,9 @@ const MAX_PIXELS = 360_000
 /** A pleasant still frame for Static and reduced motion (shader time in ms). */
 const STILL_FRAME = 4200
 const BOOST_MS = 320
+/** A slow sheen needs no more; halves the GPU work of a 60 Hz loop (battery). */
+const FPS = 30
+const FRAME_MS = 1000 / FPS
 
 const entries = new Set<Entry>()
 let order = 0
@@ -61,6 +70,7 @@ window.addEventListener('navigating', () => {
   paused = navigating()
   for (const e of entries) applySpeed(e)
 })
+document.addEventListener('visibilitychange', () => wake())
 // Crossing the phone breakpoint changes the budget.
 matchMedia('(max-width: 640px)').addEventListener('change', () => schedule())
 
@@ -71,6 +81,7 @@ const io = new IntersectionObserver(
       if (e) e.visible = it.isIntersecting
     }
     schedule()
+    wake()
   },
   // A little margin so a surface scrolled just out of view keeps its canvas (no thrashing).
   { rootMargin: '120px' },
@@ -144,8 +155,34 @@ function speedOf(e: Entry): number {
   return e.hovered ? e.params.hover : e.params.speed
 }
 
+/** The speed in force, also exposed as data-speed for tests and diagnostics. */
 function applySpeed(e: Entry) {
-  e.mount?.setSpeed(speedOf(e))
+  e.el.dataset.speed = e.mount ? String(speedOf(e)) : '0'
+  wake()
+}
+
+// ─── The shared ticker ───
+let raf = 0
+function wake() {
+  if (!raf) raf = requestAnimationFrame(tick)
+}
+
+function tick(now: number) {
+  raf = 0
+  if (document.hidden) return
+  let animating = false
+  for (const e of entries) {
+    const speed = speedOf(e)
+    if (!e.mount || !e.visible || speed === 0) continue
+    animating = true
+    if (now - e.lastDraw < FRAME_MS - 2) continue
+    // After a pause, continue from where it stopped instead of jumping ahead.
+    const dt = now - e.lastDraw > 4 * FRAME_MS ? FRAME_MS : now - e.lastDraw
+    e.frame += dt * speed
+    e.lastDraw = now
+    e.mount.setFrame(e.frame)
+  }
+  if (animating) raf = requestAnimationFrame(tick)
 }
 
 /** Pixel budget: DPR capped at 1.5 for this surface's size, and never above MAX_PIXELS. */
@@ -162,8 +199,8 @@ function start(e: Entry) {
       liquidMetalFragmentShader,
       uniforms(e.params),
       { alpha: true, antialias: false, depth: false, stencil: false, powerPreference: 'low-power', premultipliedAlpha: true },
-      0,
-      STILL_FRAME,
+      0, // the library's own loop stays off; the shared ticker draws frames
+      e.frame,
       1, // render at the device ratio (capped below), not the library's 2× default
       pixelsFor(e),
     )
@@ -215,6 +252,8 @@ export function attach(el: HTMLElement, rim: HTMLElement, kind: keyof typeof PRI
     failed: false,
     params,
     mount: null,
+    frame: STILL_FRAME,
+    lastDraw: 0,
     hovered: false,
     boostUntil: 0,
     boostTimer: 0,

@@ -60,7 +60,7 @@ const surfaces = (page) =>
     }),
   );
 const frameOf = (page, sel) => page.evaluate((s) => document.querySelector(s)?.querySelector('.lm-rim')?.paperShaderMount?.getCurrentFrame() ?? null, sel);
-const speedOf = (page, sel) => page.evaluate((s) => document.querySelector(s)?.querySelector('.lm-rim')?.paperShaderMount?.currentSpeed ?? null, sel);
+const speedOf = (page, sel) => page.evaluate((s) => { const v = document.querySelector(s)?.querySelector('.lm')?.dataset.speed; return v === undefined ? null : Number(v) }, sel);
 
 (async () => {
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });

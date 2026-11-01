@@ -44,10 +44,11 @@ const rect = (page, sel) => page.evaluate((s) => {
   return r && { x: r.x, y: r.y, w: r.width, h: r.height, top: r.top, bottom: r.bottom };
 }, sel);
 
-// A quick flick: three moves, so the gesture stays well under the app's 600 ms swipe limit
-// even when this machine is busy.
+// A quick flick: two moves, so the gesture stays well under the app's 600 ms swipe limit even
+// when this machine is busy (each CDP touch event can take ~150 ms under software WebGL, with
+// the liquid-metal shader running; see trap 28).
 async function swipe(cdp, from, to) {
-  const steps = 3;
+  const steps = 2;
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y }] });
   for (let i = 1; i <= steps; i++) {
     const x = from.x + ((to.x - from.x) * i) / steps;
