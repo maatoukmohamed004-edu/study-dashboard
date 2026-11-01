@@ -797,8 +797,10 @@ Earlier, at the end of phase 2: 78/78 matrix shots, 17,890 text runs, 0 below AA
 - The shader-only metal settings are shown but switched off (`inert`) without WebGL 2, with a
   note; enable, apply-to and tint stay usable because the CSS rim honours them.
 - The Lightning CSS blur bug (trap 23) is fixed for the new bar in its own commits; the older
-  rules (frosted-blur header/buttons and glass cards) are fixed in a separate, last commit so it
-  can be dropped if the unblurred look is preferred.
+  rules (frosted-blur header/buttons and glass cards) are fixed in a separate, last commit
+  ("Fix frosted blur dropped by the CSS minifier") so it can be dropped if the unblurred look is
+  preferred. With it, glass cards really blur in production: 34 of 42 desktop shots change
+  slightly (the grid no longer shows through cards), all still AA.
 
 ## 14. History
 

@@ -496,13 +496,11 @@ select.input {
 [data-glass-cards='on'] .card {
   background: var(--glass-tint);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   box-shadow: inset 0 1px 0 var(--glass-edge-soft);
 }
 
 [data-glass='liquid'][data-glass-cards='on'] .card {
   backdrop-filter: blur(var(--glass-blur, 16px));
-  -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
 }
 
 /* ─── Tables ─────────────────────────────────────────────────────────────── */
