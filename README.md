@@ -226,7 +226,10 @@ Without Actions: `npm run build && npx gh-pages -d dist`, then set Pages to the 
   - Live regions announce results and toasts.
   - The timetable grid has a screen-reader list version.
   - Text contrast was measured on rendered pixels for every page in Mono Noir, Midnight,
-    Graphite, Light and High contrast, at 1440 px and 390 px, and for each glass mode.
+    Graphite, Light and High contrast, at 1440 px and 390 px, and for each glass mode. The
+    floating bar was also measured at 390 and 360 px in Mono Noir and Light, in every
+    roundness, glass and metal variant, and with a solid white or black block placed right
+    behind it in every preset: no text below AA.
 
 ### Version pins
 

@@ -628,7 +628,21 @@ simulated date. While it's on, a sticky amber banner shows with **Back to real t
 - All tests run with simulated time Wed 2026-11-18 14:40 and the progress seed in
   `tools/verify/seed.json`.
 
-**Last full verification (2026-11-01, branch `feat/mobile-nav-transition`):**
+**Last full verification (phase 4, 2026-11-01, branch `feat/mobile-nav-transition`):**
+- lint and typecheck clean; first-load JS 103.2 kB gz (102.9 before phase 4), metalEngine
+  9.9 kB gz lazy, CSS 19.7 kB gz;
+- 73/73 settings, 67/67 navigation and 21/21 liquid-metal checks;
+- contrast on rendered pixels: 55 phone shots (Mono Noir and Light × 7 pages × 390/360 px,
+  plus 27 variants: docked, Square/Rounded/Pill, underline, each glass mode, metal live / CSS /
+  reduced / all targets, the More panel ×3, and a solid white or black block right behind the
+  bar in every preset and at tint 20 %): 9,977 text runs, 0 below AA, 0 console errors. The
+  metal label measured ≥ 17:1 at its brightest pixels over 6 frames;
+- desktop 1440 vs 6b7ecb6 (transitions off, 42 shots): identical except Settings mid/end
+  (the new Roundness, Liquid metal and Navigation rows);
+- docked bar at 390 vs 6b7ecb6 (36 shots, every page but Settings): identical;
+- transition frames: the bar, its glass and the metal pill stay on screen in every frame.
+
+Phase 3 (same date):
 - lint and typecheck clean;
 - 61/61 settings checks and 57/57 navigation checks;
 - contrast: 42 shots (Mono Noir and Light, every page at 1440 px, at 390 px, and at 390 px
